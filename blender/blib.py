@@ -142,9 +142,9 @@ def railing(p0, p1, h=1.1, m=None, post=1.5):
     for i in range(n + 1):
         q = a + (b - a) * (i / n); cyl(0.025, h, q.x, q.y + h / 2, q.z, m, 'Y', 8)
     for hh in (h * 0.5, h): pipe([tuple(a + Vector((0, hh, 0))), tuple(b + Vector((0, hh, 0)))], 0.025, m, poly=True)
-def grating(sx, sz, x, y, z, along='X', m=None):
+def grating(sx, sz, x, y, z, along='X', m=None, step=0.1):
     m = m or MATS['grating']; box(sx, 0.04, sz, x, y, z, m, 0.0)
-    n = int((sx if along == 'X' else sz) / 0.1)
+    n = int((sx if along == 'X' else sz) / step)
     for i in range(n):
         if along == 'X': box(0.02, 0.05, sz, x - sx / 2 + (i + 0.5) * sx / n, y + 0.03, z, MATS['dark_steel'], 0.0)
         else: box(sx, 0.05, 0.02, x, y + 0.03, z - sz / 2 + (i + 0.5) * sz / n, MATS['dark_steel'], 0.0)

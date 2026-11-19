@@ -140,7 +140,7 @@ export function buildSystems(ctx) {
   S1.engineGroups = engines;
 
   // ================================================================ 2 ELECTRICAL (switchboards, transformers, slip ring, cable trays, routed cables, drives)
-  const S2 = sys(2, 'elec', 'Electrical · 11 kV ring, slip ring, 690 V drives, routed cables', {focus: ['swb', 'tx', 'slipring', 'brushes'], k: 0.55, pull: {ids: ['slipring', 'brushes', 'swivel'], hide: ['tray'], k: 1.25}, in: 'slew', t: [-95, 14, 0], az: -38, el: 40, r: 125});
+  const S2 = sys(2, 'elec', 'Electrical · 11 kV ring, slip ring, 690 V drives, routed cables', {focus: ['swb', 'tx', 'slipring', 'brushes'], k: 0.55, pull: {ids: ['slipring', 'brushes', 'swivel', 'swb', 'tx', 'drives'], all: true, k: 0.62}, in: 'slew', t: [-95, 14, 0], az: -38, el: 40, r: 125});
   const EG = grp(slew), EH = grp(rig); S2.groups.push(EG, EH);
   const mSwb = mat('swb', 0xc7ccd1, {m: 0.3, r: 0.5}), mSwbD = mat('swbD', 0x8e959c, {m: 0.3}), mTx = mat('tx', 0x4c6b55, {m: 0.3, r: 0.6}), mCab = mat('cab', 0x1d1f22, {m: 0.1, r: 0.6, e: 0x22ff66, ei: 0}), mTray = mat('tray', 0x9a9ea3, {m: 0.6}), mCu = mat('cu', 0xb87333, {m: 1, r: 0.25}), mDrive = mat('drv', 0x3d4f73, {m: 0.3});
   const cubGeo = mergeAll([new THREE.BoxGeometry(1, 2.4, 1.8).translate(0, 1.2, 0), new THREE.BoxGeometry(0.8, 0.9, 0.04).translate(0, 1.7, 0.92), new THREE.BoxGeometry(0.1, 0.1, 0.05).translate(0.3, 1.2, 0.93)]);
@@ -250,7 +250,7 @@ export function buildSystems(ctx) {
   part(S3, 'podtrain', 'Pod drives, 4 × 1.5 MW per pod', 'I', null, null, S3.podTrains[0].bm, [0, 0, 3]);
 
   // ================================================================ 4 RUNNING GEAR & SUSPENSION
-  const S4 = sys(4, 'susp', 'Running gear & hydropneumatic suspension · 20 stations', {focus: ['cyl', 'acc', 'manifold', 'bearing'], k: 1.9, pull: {ids: ['cyl', 'manifold', 'hose', 'bearing', 'axle'], k: 1.15}, in: 'rig', t: [ROAD[4], 12, I.laneZ], az: -60, el: 22, r: 78});
+  const S4 = sys(4, 'susp', 'Running gear & hydropneumatic suspension · 20 stations', {focus: ['cyl', 'acc', 'manifold', 'bearing'], k: 1.9, pull: {ids: ['cyl', 'manifold', 'hose', 'bearing', 'axle'], frameNames: ['trackrun'], k: 1.05}, in: 'rig', t: [ROAD[4], 12, I.laneZ], az: -60, el: 22, r: 78});
   const SG = grp(rig); S4.groups.push(SG);
   const mCylB = mat('cylB', 0x5c6670, {m: 0.7, r: 0.35}), mRod = mat('rodC', 0xdfe3e6, {m: 1, r: 0.12}), mAcc = mat('acc', 0xd8d4c8, {m: 0.4, r: 0.4, e: 0xff3b1f, ei: 0}), mHose = mat('hose', 0x111111, {m: 0.1, r: 0.8});
   S4.stations = [];
@@ -391,7 +391,7 @@ export function buildSystems(ctx) {
   ext(H, -12, 0.4, 15, 'HPU room'); ext(H, 12, 0.4, -15, 'HPU room');
 
   // ================================================================ 7 HULL, BUOYANCY, MARINE & FIRE SAFETY
-  const S7 = sys(7, 'hull', 'Hull, buoyancy & fire safety · pontoons, ballast, 5 thrusters, fire main, extinguishers', {k: 0.85, pull: {ids: ['thr', 'nozzle'], k: 1.05}, in: 'rig', t: [115, 16, 0], az: -42, el: 30, r: 330});
+  const S7 = sys(7, 'hull', 'Hull, buoyancy & fire safety · pontoons, ballast, 5 thrusters, fire main, extinguishers', {k: 0.85, pull: {ids: ['thr', 'nozzle'], k: 0.72}, in: 'rig', t: [115, 16, 0], az: -42, el: 30, r: 330});
   const HG = grp(rig), HS = grp(slew); S7.groups.push(HG, HS);
   const mBh = mat('bh', 0x9fb0bd, {m: 0.3, t: true, op: 0.55, side: THREE.DoubleSide}), mWater = mat('ballast', 0x2f6f9f, {m: 0.1, r: 0.2, t: true, op: 0.7}), mFire = mat('fire', 0xc81e1e, {m: 0.4, r: 0.4}), mOr = mat('orange', 0xf26b1d, {m: 0.2, r: 0.5}), mThr = mat('thr', 0xb7c0c7, {m: 0.8, r: 0.3});
   const bhs = [];

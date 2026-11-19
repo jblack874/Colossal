@@ -28,6 +28,12 @@ import PUMP from './assets/pump.glb';
 import FIREPUMP from './assets/firepump.glb';
 import LIFEBOAT from './assets/lifeboat.glb';
 import HYDRANT from './assets/hydrant.glb';
+import SHOE from './assets/shoe.glb';
+import SPROCKET from './assets/sprocket.glb';
+import ROADWHEEL from './assets/roadwheel.glb';
+import HULLX from './assets/hull.glb';
+import UPPER from './assets/upper.glb';
+import BOOMX from './assets/boom.glb';
 
 const {I, MAIN, POD, ROAD, pitch, rS, rP} = K;
 for (const c of K.CHECK) console.log(`hand check ${c.id} ${c.label}: ${c.got.toFixed(3)} vs ${c.want.toFixed(3)} ${c.unit} → ${K.checkOK(c) ? 'PASS' : 'FAIL'} (${c.note})`);
@@ -64,6 +70,7 @@ body.field{--bg:#c9ccce;--card:rgba(240,240,238,.88)}
 document.head.insertAdjacentHTML('beforeend', `<style>${css}</style>`);
 document.body.insertAdjacentHTML('beforeend', `
 <canvas id="c"></canvas>
+<style>.film .card{display:none!important}.film #cap{bottom:48px!important;font-size:17px!important}</style>
 <div id="hud">
  <div id="brand">COLOSSAL</div>
  <div id="title"><div class="k">ORIGINAL AMPHIBIOUS TRACKED COLOSSUS · 230 M HULL</div>
@@ -96,7 +103,8 @@ document.body.insertAdjacentHTML('beforeend', `
   <div class="lab" style="margin:8px 0 4px">EXPLODE</div><input type="range" id="explode" min="0" max="1" step="0.01" value="0">
   <div class="lab" style="margin:6px 0 4px">SECTION · FAULTS</div><div id="sysBtns"></div>
   <div class="lab" style="margin:8px 0 4px">PARTS · <span id="sysPN"></span></div><div id="sysParts" style="font-size:10px;line-height:1.5"></div></div>
- <div class="card" style="left:20px;bottom:40px"><div class="lab" style="margin-bottom:6px">SYSTEM (CUT INTO)</div><div id="systems"></div><div class="lab" style="margin:4px 0 6px">VIEW</div><div id="views"></div>
+ <div id="cap" style="position:absolute;left:50%;bottom:150px;transform:translateX(-50%);max-width:760px;text-align:center;font:500 15px/1.45 inherit;color:#1b1c1e;background:rgba(246,244,239,.92);border:1px solid #d9d5cc;padding:10px 18px;display:none"></div>
+ <div class="card" style="left:20px;bottom:40px"><div class="lab" style="margin-bottom:6px">SYSTEM (CUT INTO)</div><div id="systems"></div><div class="lab" style="margin:4px 0 6px">GUIDED TOUR</div><div id="tours"></div><div class="lab" style="margin:4px 0 6px">VIEW</div><div id="views"></div>
   <div class="lab" style="margin:4px 0 6px">MODE · DISPLAY · TIME</div><div id="modes"></div></div>
  <div id="foot"><span>COLOSSAL · PASS 1 · S = SOURCED · D = DERIVED · I = INVENTED</span><span id="clock"></span></div>
 </div>`);
@@ -343,6 +351,28 @@ const GLB = {ready: false};
   S7.boats.forEach((b) => { hideOld(b); place(boatG, b, {mirrorZ: b.position.z < 0}); });
   { const im = S7.hyd, M4 = new THREE.Matrix4(), P = new THREE.Vector3(); im.layers.set(1);
     for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, M4); P.setFromMatrixPosition(M4); const c = place(hydG, im.parent, {x: P.x, y: P.y, z: P.z}); if (P.z < 0) c.rotation.y = Math.PI; if (i === 0) repoint(S7, c, ['hydrant']); } }
+  // exterior: shoes instanced on the live belt path, wheels ride the procedural wheels, hull / upperworks / boom replace boxes + greebles
+  const [shoeG, sprG, roadG, hullG, upG, boomG] = await Promise.all([SHOE, SPROCKET, ROADWHEEL, HULLX, UPPER, BOOMX].map(parseGLB));
+  const extMats = new Set(); const reg = (root) => { root.traverse((o) => { if (o.isMesh) for (const mm of [o.material].flat()) extMats.add(mm); }); return root; };
+  { const geos = [], mm = []; shoeG.updateMatrixWorld(true);
+    shoeG.traverse((o) => { if (o.isMesh) { const g = o.geometry.clone().applyMatrix4(o.matrixWorld); for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k); geos.push(g); mm.push(o.material); } });
+    const merged = mergeGeometries(geos, true); for (const L of [mainLinks, ...podLinks]) { L.geometry = merged; L.material = mm; } mm.forEach((x) => extMats.add(x)); }
+  const ride = (w, src, sx = 1, sy = 1) => { w.layers.set(1); for (const c of w.children) c.layers.set(1); const c = reg(place(src, w)); c.scale.set(sx, sy, sx); };
+  for (const w of wheels) w.userData.pod ? ride(w, sprG, POD.r / MAIN.r, I.podBeltW / I.beltW) : ride(w, sprG);
+  for (const w of roads) ride(w, roadG);
+  const keepRig = new Set([...wheels, ...roads, ...struts, mainLinks]);
+  for (const c of rig.children) if ((c.isMesh) && !keepRig.has(c)) c.layers.set(1);
+  const hullC = reg(place(hullG, rig));
+  const tf = hullC.getObjectByName('trackframes'); GLB.xray = []; tf.traverse((o) => { if (o.isMesh) { o.material = [o.material].flat().map((x) => { const y = x.clone(); GLB.xray.push(y); return y; }); if (o.material.length === 1) o.material = o.material[0]; } });
+  GLB.xray.forEach((x) => extMats.add(x));
+  const ringMesh = slew.children.find((c) => c.isMesh && c.geometry.type === 'CylinderGeometry' && c.position.y === 4);
+  for (const c of slew.children) if (c.isMesh && c !== ringMesh) c.layers.set(1);
+  reg(place(upG, slew));
+  for (const c of boom.children) if (c.isMesh) c.layers.set(1);
+  reg(place(boomG, boom));
+  for (const x of extMats) if (!SHELL.includes(x)) SHELL.push(x);
+  GLB.extByName = {}; for (const x of extMats) (GLB.extByName[x.name] ??= []).push(x);
+  GLB.ext = true; applyMode(); applyDisplay();
   GLB.ready = true; window.__glb = true; applyShell();
 })();
 
@@ -368,6 +398,54 @@ function camStep(dt) {
   ctl.target.set(...v.t); cam.position.copy(sph(v));
 }
 
+// ---------------------------------------------------------------- guided tours (film): scripted camera + cut-ins per system
+// Each step: d seconds; camera relative to the system's own framing (daz, el, rk x radius) or an absolute view (v);
+// ex = explode target, pull / ghost = cut-in state, cap = caption. tourAt(T) is deterministic (used for video capture).
+const SEG = (n, steps) => ({n, steps});
+const TOUR = [
+  SEG(0, [{v: 'HERO', d: 6, daz: -25, rk: 1.15, cap: 'COLOSSAL — original amphibious tracked colossus. 230 m hull, 100 m beam, ~130 kt, 1.57 bar ground pressure (Bagger 288 class).'},
+          {v: 'TRACK', d: 5, daz: 18, rk: 0.8, cap: 'Four 13 m main belts on 2.6 m hollow cast shoes, 10 road wheels each, hydropneumatic struts; outboard bogie pods.'},
+          {v: 'SIDE', d: 4, daz: 0, rk: 1.0, depth: 24, cap: 'Afloat in deep water: sealed hull + track frames give the buoyancy, draft about 19 m.'}]),
+  SEG(1, [{d: 5, daz: -20, rk: 1.0, cap: 'POWER — 12 × MAN 8L51/60DF dual-fuel gensets in 4 engine rooms: 96 MW, LNG with MGO pilot.'},
+          {d: 4, daz: 15, rk: 0.85, ex: 0.7, cap: 'Exploded: crankcase, cylinder heads, rocker covers, fuel pumps, turbocharger, charge-air cooler, 8 MW alternator.'},
+          {d: 3, daz: 30, rk: 1.0, ex: 0, pull: false, cap: 'In place: rooms, uptakes, LNG tanks and the CO₂ flooding bank inside the ghosted hull.'}]),
+  SEG(2, [{d: 5, daz: -10, rk: 1.0, cap: 'ELECTRICAL — 11 kV switchboards and transformers to 690 V; 4 circuits × 3 phases cross the slewing joint on a 12-ring slip ring.'},
+          {d: 4, daz: 25, rk: 0.8, cap: 'Medium-voltage drive cabinets feed 48 traction motors at 690 V, 1.5 MW each.'}]),
+  SEG(3, [{d: 5, daz: -15, rk: 1.0, cap: 'DRIVETRAIN — 10 motors per sprocket into a combining bull gear, then a planetary stage: ~2,995:1 overall.'},
+          {d: 4, daz: 10, rk: 0.8, ex: 0.6, cap: 'Exploded: ring gear, carrier with 4 planets, sun, bull gear, pinions, motors, 29-tooth sprocket.'}]),
+  SEG(4, [{d: 5, daz: -20, rk: 1.0, cap: 'SUSPENSION — 20 stations, 4 strut cylinders each at 250 bar static; nitrogen accumulators set the 0.32 Hz ride.'},
+          {d: 4, daz: 20, rk: 0.95, ex: 0.25, cap: 'Rods and accumulators move with the live terrain model; road wheel shown with its tapered-roller bearing.'}]),
+  SEG(5, [{d: 5, daz: -15, rk: 1.0, cap: 'SLEWING — 48 m three-row roller bearing: 377 rollers per row, 960-tooth internal ring gear, 720 bolts.'},
+          {d: 4, daz: 25, rk: 0.7, cap: '24 slew drives (motor, brake, planetary box, 18-tooth pinion) turn the upperworks at the commanded slew rate.'}]),
+  SEG(6, [{d: 5, daz: -15, rk: 1.0, cap: 'GUN & ELEVATION (visual only) — trunnions, cradle, recoil cylinders, breech; elevated by 2 × Ø1.54 m rams at 350 bar.'},
+          {d: 4, daz: 20, rk: 0.85, ex: 0.6, cap: 'Exploded mechanism. 12 × A4VSO 1000 pump sets in the HPU room feed the elevation rams.'}]),
+  SEG(7, [{d: 5, daz: -15, rk: 1.0, cap: 'HULL & MARINE — 5 retractable 5.5 MW azimuth thrusters for water ops, 8 watertight compartments, ballast system.'},
+          {d: 4, daz: 30, rk: 1.0, pull: false, cap: 'Fire safety in place: fire main, hydrants, deluge, lifeboats and 163 portable extinguishers on 46 CFR spacing.'}]),
+];
+const TT = TOUR.map((s) => s.steps.reduce((a, b) => a + b.d, 0)), TOUR_LEN = TT.reduce((a, b) => a + b, 0);
+const tour = {on: false, t: 0, seg: -1, step: -1, only: null};
+const ease = (k) => k < 0.5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2;
+function tourAt(T) {
+  const segs = tour.only != null ? [tour.only] : TOUR.map((_, i) => i);
+  let acc = 0, si = segs.at(-1), st = 0, local = 0;
+  for (const i of segs) { if (T < acc + TT[i] || i === segs.at(-1)) { si = i; local = Math.min(T - acc, TT[i] - 1e-3); break; } acc += TT[i]; }
+  const S = TOUR[si]; let a = 0; for (st = 0; st < S.steps.length - 1 && local >= a + S.steps[st].d; st++) a += S.steps[st].d;
+  const P = S.steps[st], prev = S.steps[st - 1] || P, k = ease(Math.min(1, (local - a) / Math.min(2.2, P.d)));
+  if (si !== tour.seg) { tour.seg = si; tour.step = -1; if (S.n) { if (ui.sys !== S.n) selectSys(S.n); } else if (ui.sys) selectSys(ui.sys); }
+  if (st !== tour.step) { tour.step = st; if (S.n) { const pl = P.pull ?? !!SYS[S.n - 1].frame.pull; if (pl !== ui.pull) { ui.pull = pl; applyShell(); selectSys(-1); } }
+    if (P.depth != null || !S.n) { ui.depth = P.depth ?? 0; if ($('depth')) $('depth').value = ui.depth; }
+    $('cap').textContent = P.cap; $('cap').style.display = ''; }
+  const base = S.n ? VIEWS.SYS : VIEWS[P.v], b0 = S.n ? VIEWS.SYS : VIEWS[prev.v];
+  const lerp = (x, y) => x + (y - x) * k;
+  const v = {t: (st === 0 || S.n ? base.t : b0.t.map((x, i) => lerp(x, base.t[i]))), az: lerp(b0.az + (prev === P ? 0 : prev.daz || 0), base.az + (P.daz || 0)),
+    el: lerp(b0.el, base.el), r: lerp(b0.r * (prev === P ? (P.rk || 1) * 1.08 : prev.rk || 1), base.r * (P.rk || 1)), fov: base.fov ?? 32};
+  if (S.n) { const ex = P.ex ?? 0, e0 = prev === P ? 0 : prev.ex ?? 0; ui.explode = lerp(e0, ex); $('explode').value = ui.explode; }
+  camTo = null; camK = 1; if (cam.fov !== v.fov) { cam.fov = v.fov; cam.updateProjectionMatrix(); }
+  ctl.target.set(...v.t); cam.position.copy(sph(v)); cam.lookAt(ctl.target);
+}
+function tourStart(only = null) { tour.on = true; tour.t = 0; tour.seg = -1; tour.only = only; if (ui.sys) selectSys(ui.sys); }
+function tourStop() { tour.on = false; $('cap').style.display = 'none'; if (ui.sys) selectSys(ui.sys); view('HERO'); }
+
 // ---------------------------------------------------------------- modes
 const ui = {t: 0, rate: 10, view: 'HERO', mode: 'STUDIO', xray: false, terrain: true, depth: 0, paused: false, sys: 0, explode: 0, ghost: false, pull: false, strobe: true, trip: {}};
 function applyMode() {
@@ -378,6 +456,8 @@ function applyMode() {
   M.hull.color.set(f ? 0x16181b : 0xb8b3a9); M.plate.color.set(f ? 0x15171a : 0xcfcac1); M.panel.color.set(f ? 0x24262a : 0xe9e6df); M.panel.metalness = f ? 0.1 : 0.25; M.panel.envMapIntensity = f ? 0.35 : 1;
   M.link.color.set(f ? 0x8a8d92 : 0x2b2d30); M.acc.color.set(f ? 0x1c1e21 : 0xe8562a); M.wheel.color.set(f ? 0x2c2e31 : 0x9a968e);
   scene.environmentIntensity = f ? 0.45 : 0.6;
+  if (GLB?.extByName) { const T = {hull_warm: [0xa9a499, 0x16181b], plate_light: [0xc4bfb5, 0x1b1d20], frame_dark: [0x4a4d51, 0x2a2c30], deck_nonskid: [0x7f7c76, 0x2a2b2d], glacis_bright: [0xe2ded6, 0xbdb9b1], trim_dark: [0x2f3134, 0x0f1012]};
+    for (const [n, c] of Object.entries(T)) for (const x of GLB.extByName[n] || []) x.color.setHex(c[f ? 1 : 0]); }
   gTex.image.getContext('2d'); gMat.color.set(f ? 0xdcdad4 : 0xffffff);
   hemi.intensity = f ? 0.8 : 1.6; key.intensity = f ? 0.3 : 2.2; renderer.toneMappingExposure = f ? 0.8 : 1;
   fig.visible = true; salt.visible = f; grass.visible = f; ground.visible = !f;
@@ -385,11 +465,13 @@ function applyMode() {
     grass.position.copy(cp).addScaledVector(dir, 190).setY(0.02); grass.rotation.z = Math.atan2(dir.x, dir.z);
     fig.userData.field = cp.clone().addScaledVector(dir, 436).add(new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(28)).setY(0); }
 }
-function applyDisplay() { M.plate.opacity = ui.xray ? 0.12 : 1; M.hull.transparent = ui.xray; M.hull.opacity = ui.xray ? 0.25 : 1; M.hull.needsUpdate = true; }
+function applyDisplay() { if (GLB?.xray) for (const x of GLB.xray) { x.transparent = ui.xray; x.opacity = ui.xray ? 0.12 : 1; x.depthWrite = !ui.xray; x.needsUpdate = true; } M.plate.opacity = ui.xray ? 0.12 : 1; M.hull.transparent = ui.xray; M.hull.opacity = ui.xray ? 0.25 : 1; M.hull.needsUpdate = true; }
 function btns(el, items) { $(el).innerHTML = items.map(([k, l]) => `<span class="btn" data-k="${k}">${l}</span>`).join(''); $(el).onclick = (e) => { const k = e.target.dataset.k; if (k) act(k); }; }
 btns('views', Object.keys(VIEWS).map((k) => [`v:${k}`, k]));
+btns('tours', [['tour:all', '▶ FULL TOUR'], ...[1, 2, 3, 4, 5, 6, 7].map((n) => [`tour:${n}`, `▶ ${n}`]), ['tour:stop', '■ STOP']]);
 btns('modes', [['m:STUDIO', 'STUDIO'], ['m:FIELD', 'FIELD'], ['x', 'X-RAY'], ['g', 'TERRAIN'], ['r:1', '×1'], ['r:10', '×10'], ['r:30', '×30'], ['p', 'PAUSE']]);
 function act(k) {
+  if (k.startsWith('tour:')) { const w = k.slice(5); if (w === 'stop') tourStop(); else tourStart(w === 'all' ? null : +w); return; }
   if (k.startsWith('v:')) view(k.slice(2));
   else if (k.startsWith('m:')) { ui.mode = k.slice(2); applyMode(); if (ui.mode === 'FIELD') view('FIELD'); }
   else if (k === 'x') { ui.xray = !ui.xray; applyDisplay(); }
@@ -481,9 +563,9 @@ renderer.localClippingEnabled = true;
 function applyShell() {
   for (const m of SHELL) {
     m.clippingPlanes = ui.sys && !ui.ghost ? [cutPlane] : null;
-    const gh = ui.sys && ui.ghost; m.transparent = gh || m === M.plate && ui.xray; m.opacity = gh ? 0.07 : (m === M.plate && ui.xray ? 0.12 : 1); m.depthWrite = !gh; m.needsUpdate = true;
+    const gh = ui.sys && ui.ghost, xr = (m === M.plate || GLB.xray?.includes(m)) && ui.xray; m.transparent = gh || xr; m.opacity = gh ? 0.07 : (xr ? 0.12 : 1); m.depthWrite = !gh; m.needsUpdate = true;
   }
-  for (const g of GREEB) g.visible = !(ui.sys && ui.ghost);
+  for (const g of GREEB) g.visible = !(ui.sys && ui.ghost) && !GLB.ext;
   for (const s of SYS) for (const g of s.groups) g.visible = ui.sys ? s.n === ui.sys : ui.xray;
   const S = SYS[ui.sys - 1], P = ui.sys && ui.pull && S?.frame.pull;
   const ENV = [ground, water, salt, grass, fig, contact];
@@ -499,6 +581,7 @@ function applyShell() {
     const inKeep = (o) => { for (let a = o; a; a = a.parent) if (keep.has(a)) return true; return false; };
     const tmp = new THREE.Box3(), cc = new THREE.Vector3();
     for (const g of S.groups) g.traverse((o) => {
+      if (P.all) { o.visible = true; return; }
       if (!o.isMesh) { o.visible = true; return; }
       if (inKeep(o)) { o.visible = true; return; }
       if (o.isInstancedMesh) { o.visible = false; return; }
@@ -520,7 +603,10 @@ function selectSys(n) {
   document.querySelectorAll('.card').forEach((c) => { if (/SUSPENSION|HAND CHECKS/.test(c.innerText) && c.id !== 'sysCard') c.style.display = s ? 'none' : ''; });
   if (s) {
     rig.updateMatrixWorld(true); applyShell();
-    const bb = new THREE.Box3(); const fids = ui.pull && s.frame.pull ? s.frame.pull.ids : s.frame.focus; const fo = fids ? s.parts.filter((p) => fids.includes(p.id) && !(ui.pull && s.frame.pull?.count?.[p.id] != null) && !(p.obj?.isInstancedMesh && ui.pull)).map((p) => p.obj).filter(Boolean) : s.groups; for (const g of fo) bb.expandByObject(g);
+    const bb = new THREE.Box3(); const fids = ui.pull && s.frame.pull ? s.frame.pull.ids : s.frame.focus; const fo = fids ? s.parts.filter((p) => fids.includes(p.id) && !(ui.pull && s.frame.pull?.count?.[p.id] != null) && !(p.obj?.isInstancedMesh && ui.pull)).map((p) => p.obj).filter(Boolean) : s.groups; for (const g of (ui.pull && s.frame.pull?.all ? s.groups : fo)) bb.expandByObject(g);
+    if (ui.pull && s.frame.pull?.frameNames && !bb.isEmpty()) { const c0 = bb.getCenter(new THREE.Vector3()), wp0 = new THREE.Vector3(); const best = {};
+      for (const g of s.groups) g.traverse((o) => { if (s.frame.pull.frameNames.includes(o.name)) { const d = o.getWorldPosition(wp0).distanceTo(c0); if (!best[o.name] || d < best[o.name].d) best[o.name] = {o, d}; } });
+      for (const k in best) bb.expandByObject(best[k].o); }
     const c = s.frame.auto === false || bb.isEmpty() ? wp(s) : bb.getCenter(new THREE.Vector3());
     const sz = bb.getSize(new THREE.Vector3()), dim = Math.max(sz.x, sz.y * 1.6, sz.z);
     if (s.frame.auto !== false && !bb.isEmpty()) s.frame.r = dim / (2 * Math.tan(16 * Math.PI / 180)) * (ui.pull && s.frame.pull ? s.frame.pull.k ?? 1.4 : s.frame.k ?? 0.95);
@@ -629,13 +715,15 @@ function follow() {
 function renderAt(t) { ui.t = t; const S = K.state(t, opts()); pose(S); follow(); panels(S); sysPanel(); renderer.render(scene, cam); labels(); }
 let last = performance.now();
 function frame(now) {
+  if (window.__hold === 'film') { requestAnimationFrame(frame); return; }   // capture drives renderAt itself
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (!ui.paused && !window.__hold) ui.t += dt * ui.rate;
   follow();
+  if (tour.on) { tour.t += dt; if (tour.t >= (tour.only != null ? TT[tour.only] : TOUR_LEN)) tourStop(); else tourAt(tour.t); }
   camStep(dt); ctl.update();
   const S = K.state(ui.t, opts()); pose(S); panels(S); sysPanel();
   renderer.render(scene, cam); labels(); requestAnimationFrame(frame);
 }
 applyMode(); applyDisplay(); cam.position.copy(sph(VIEWS.HERO)); ctl.target.set(...VIEWS.HERO.t); sync();
 requestAnimationFrame(frame);
-window.__app = {ready: true, ui, view, act, renderAt, VIEWS, settle: () => { if (camTo) { camK = 0.999; camStep(1); } }, K, scene, cam, grass, salt, fig, SYS, selectSys, renderer, EXTS};
+window.__app = {film: (on) => { document.body.classList.toggle('film', on); }, ready: true, ui, view, act, renderAt, tourAt, tour, TOUR, TT, TOUR_LEN, follow, VIEWS, settle: () => { if (camTo) { camK = 0.999; camStep(1); } }, K, scene, cam, grass, salt, fig, SYS, selectSys, renderer, EXTS};
