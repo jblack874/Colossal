@@ -4,9 +4,13 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
-export async function parseGLB(b64) {
-  const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  const g = await new GLTFLoader().parseAsync(bin.buffer, '');
+export async function parseGLB(src) {
+  // inline base64, or 'url:<file>' when the build keeps models next to the page (build.json "external")
+  const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)).buffer;
+  let buf;
+  if (!src.startsWith('url:')) buf = b64(src);
+  else { const u = src.slice(4).split('/').pop(), r = await fetch(u); buf = u.endsWith('.json') ? b64((await r.json())[0]) : await r.arrayBuffer(); }
+  const g = await new GLTFLoader().parseAsync(buf, '');
   g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; for (const m of [o.material].flat()) { m.envMapIntensity = 1; if (m.name === 'led' || m.name === 'screen' || /status/.test(m.name)) m.toneMapped = true; } } });
   return g.scene;
 }

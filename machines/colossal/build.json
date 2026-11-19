@@ -1,0 +1,24 @@
+{
+ "external": {
+  "brushgear.glb": "../assets_json/brushgear.json",
+  "drives.glb": "../assets_json/drives.json",
+  "firepump.glb": "../assets_json/firepump.json",
+  "genset.glb": "../assets_json/genset.json",
+  "gun.glb": "../assets_json/gun.json",
+  "hpu.glb": "../assets_json/hpu.json",
+  "hydrant.glb": "../assets_json/hydrant.json",
+  "lifeboat.glb": "../assets_json/lifeboat.json",
+  "podtrain.glb": "../assets_json/podtrain.json",
+  "pump.glb": "../assets_json/pump.json",
+  "roomkit.glb": "../assets_json/roomkit.json",
+  "slewdrive.glb": "../assets_json/slewdrive.json",
+  "slewfixed.glb": "../assets_json/slewfixed.json",
+  "slewinner.glb": "../assets_json/slewinner.json",
+  "slipring.glb": "../assets_json/slipring.json",
+  "station.glb": "../assets_json/station.json",
+  "swb.glb": "../assets_json/swb.json",
+  "thruster.glb": "../assets_json/thruster.json",
+  "train.glb": "../assets_json/train.json",
+  "transformer.glb": "../assets_json/transformer.json"
+ }
+}
