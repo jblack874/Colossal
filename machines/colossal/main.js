@@ -5,6 +5,8 @@ import * as K from './kin.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {makeCollector, face, railing, catwalk} from './greeble.js';
+import {buildSystems, SYSMATS, EXTS} from './sys3d.js';
+import * as D from './sysdata.js';
 
 const {I, MAIN, POD, ROAD, pitch, rS, rP} = K;
 for (const c of K.CHECK) console.log(`hand check ${c.id} ${c.label}: ${c.got.toFixed(3)} vs ${c.want.toFixed(3)} ${c.unit} → ${K.checkOK(c) ? 'PASS' : 'FAIL'} (${c.note})`);
@@ -24,6 +26,10 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family
 .row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;gap:10px}
 .btn{display:inline-block;font-size:10px;letter-spacing:.14em;font-weight:700;border:1px solid var(--line);border-radius:4px;padding:6px 9px;margin:0 6px 6px 0;cursor:pointer;background:#fff;user-select:none}
 .btn.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.chip{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-right:6px;color:#fff}.cS{background:#2e7d5b}.cD{background:#3a63a8}.cI{background:#8a6d3b}
+.lbl{position:absolute;font-size:10px;letter-spacing:.06em;background:rgba(251,250,247,.95);border:1px solid var(--line);border-radius:3px;padding:2px 6px;white-space:nowrap;pointer-events:none}
+#leads line{stroke:#1d1d1f;stroke-width:1}#leads circle{fill:var(--acc)}
+.prow{padding:2px 0;border-bottom:1px dotted var(--line)}.prow .nt{color:var(--mute)}
 .ok{color:var(--ok);font-weight:700}.bad{color:var(--bad);font-weight:700}
 #brand{position:absolute;left:0;top:0;background:var(--acc);color:#fff;font-weight:700;letter-spacing:.2em;padding:26px 28px;font-size:15px}
 #title{position:absolute;left:190px;top:14px}
@@ -62,7 +68,14 @@ document.body.insertAdjacentHTML('beforeend', `
   <div class="row"><span class="lab">MAX STRUT</span><span id="ms"></span><span class="lab">STROKE</span><span>±${I.stroke} m</span></div>
   <div class="row"><span class="lab">POD BOGIE P / S</span><span id="pp"></span></div></div>
  <div class="card" style="right:20px;top:340px;width:330px"><div class="h"><span>HAND CHECKS</span><span class="n">04</span></div><div id="checks"></div></div>
- <div class="card" style="left:20px;bottom:40px"><div class="lab" style="margin-bottom:6px">VIEW</div><div id="views"></div>
+ <svg id="leads" width="1600" height="900" style="position:absolute;left:0;top:0;pointer-events:none"></svg><div id="labels"></div>
+ <div class="card" id="sysCard" style="right:20px;top:100px;width:430px;max-height:740px;overflow:auto;display:none">
+  <div class="h"><span id="sysT">SYSTEM</span><span class="n" id="sysN"></span></div>
+  <div id="sysRead"></div><div class="lab" style="margin:8px 0 4px">HAND CHECKS</div><div id="sysChk"></div>
+  <div class="lab" style="margin:8px 0 4px">EXPLODE</div><input type="range" id="explode" min="0" max="1" step="0.01" value="0">
+  <div class="lab" style="margin:6px 0 4px">SECTION · FAULTS</div><div id="sysBtns"></div>
+  <div class="lab" style="margin:8px 0 4px">PARTS · <span id="sysPN"></span></div><div id="sysParts" style="font-size:10px;line-height:1.5"></div></div>
+ <div class="card" style="left:20px;bottom:40px"><div class="lab" style="margin-bottom:6px">SYSTEM (CUT INTO)</div><div id="systems"></div><div class="lab" style="margin:4px 0 6px">VIEW</div><div id="views"></div>
   <div class="lab" style="margin:4px 0 6px">MODE · DISPLAY · TIME</div><div id="modes"></div></div>
  <div id="foot"><span>COLOSSAL · PASS 1 · S = SOURCED · D = DERIVED · I = INVENTED</span><span id="clock"></span></div>
 </div>`);
@@ -208,24 +221,29 @@ for (const z of [I.beam / 2, -I.beam / 2]) railing(GR, V3(0, I.unitH + I.hullH, 
 // slewing ring + upper deck: side profile extruded across the beam (rear block, chamfered nose, boom neck)
 const slew = new THREE.Group(); slew.position.set(I.upX, I.ringY, 0); rig.add(slew);
 { const r = cyl(I.ringD / 2, 8, M.acc, 64); r.position.y = 4; slew.add(r); }
-const PROF = [[-108, 8], [-108, 50], [30, 50], [58, 36], [92, 36], [92, 12], [70, 8]];
+const PROF = [[-150, 8], [-150, 50], [30, 50], [58, 36], [92, 36], [92, 12], [70, 8]];
 { const sh = new THREE.Shape(PROF.map(([x, y]) => new THREE.Vector2(x, y)));
   const g = new THREE.ExtrudeGeometry(sh, {depth: I.upW, bevelEnabled: false}); g.translate(0, 0, -I.upW / 2);
   slew.add(new THREE.Mesh(g, M.hull)); }
 const hw = I.upW / 2;
-face(GS, 31, V3(-108, 8, hw), X, Y, Zp, 138, 42, {min: 2.2, relief: 0.9, win: 0.07, white: 0.02, pipes: 3, ladders: 2});
-face(GS, 32, V3(30, 8, -hw), V3(-1, 0, 0), Y, V3(0, 0, -1), 138, 42, {min: 2.2, relief: 0.9, win: 0.07, white: 0.02, pipes: 3, ladders: 2});
-face(GS, 33, V3(-108, 8, -hw), Zp, Y, V3(-1, 0, 0), I.upW, 42, {min: 2.2, relief: 0.9, win: 0.05, pipes: 2});
+face(GS, 31, V3(-150, 8, hw), X, Y, Zp, 180, 42, {min: 2.2, relief: 0.9, win: 0.07, white: 0.10, pipes: 3, ladders: 2});
+face(GS, 32, V3(30, 8, -hw), V3(-1, 0, 0), Y, V3(0, 0, -1), 180, 42, {min: 2.2, relief: 0.9, win: 0.07, white: 0.10, pipes: 3, ladders: 2});
+face(GS, 33, V3(-150, 8, -hw), Zp, Y, V3(-1, 0, 0), I.upW, 42, {min: 2.2, relief: 0.9, win: 0.05, pipes: 2});
 face(GS, 34, V3(58, 12, hw), X, Y, Zp, 34, 24, {min: 2, relief: 0.8, win: 0.03});
 face(GS, 35, V3(92, 12, -hw), V3(-1, 0, 0), Y, V3(0, 0, -1), 34, 24, {min: 2, relief: 0.8, win: 0.03});
-face(GS, 36, V3(-108, 50, hw), X, V3(0, 0, -1), Y, 138, I.upW, {min: 3, relief: 2.6, depth: 0.4, white: 0.04, win: 0, pipes: 2, ladders: 0});
+face(GS, 36, V3(-150, 50, hw), X, V3(0, 0, -1), Y, 180, I.upW, {min: 3, relief: 2.6, depth: 0.4, white: 0.04, win: 0, pipes: 2, ladders: 0});
 { // chamfer: lighter sloped plating, like the reference's bright glacis
   const a = V3(30, 50, hw), b = V3(58, 36, hw), u = b.clone().sub(a), L = u.length(); u.normalize();
   const n = Zp.clone().cross(u).normalize();
   face(GS, 37, V3(30, 50, -hw), Zp, u, n, I.upW, L, {min: 2.5, relief: 0.25, white: 0.55, win: 0, pipes: 0, ladders: 0});
 }
-for (const y of [22, 36]) for (const sg of [1, -1]) catwalk(GS, V3(-106, y, sg * hw), V3(28, y, sg * hw), V3(0, 0, sg));
-for (const [a, b] of [[V3(-108, 50, hw), V3(30, 50, hw)], [V3(-108, 50, -hw), V3(30, 50, -hw)], [V3(-108, 50, hw), V3(-108, 50, -hw)]]) railing(GS, a, b);
+for (const y of [22, 36]) for (const sg of [1, -1]) catwalk(GS, V3(-148, y, sg * hw), V3(28, y, sg * hw), V3(0, 0, sg));
+for (const [a, b] of [[V3(-150, 50, hw), V3(30, 50, hw)], [V3(-150, 50, -hw), V3(30, 50, -hw)], [V3(-150, 50, hw), V3(-150, 50, -hw)]]) railing(GS, a, b);
+// white modules (~25%): bridge house with window band, equipment blocks, white hull band
+box(26, 12, 30, M.light, 12, 56.5, 0, slew); box(26.4, 1.8, 30.4, M.win, 12, 59.5, 0, slew);
+face(GS, 38, V3(-1, 50.5, 15), X, Y, Zp, 26, 12, {min: 1.6, relief: 0.2, white: 0.9, win: 0.0, pipes: 0, ladders: 1});
+for (const [x, z, w, d] of [[-60, -18, 26, 16], [-30, 16, 18, 12], [-95, 0, 14, 10]]) box(w, 8, d, M.light, x, 54, z, slew);
+for (const sg of [1, -1]) box(I.hullL, 2.2, 0.5, M.light, I.hullL / 2, I.unitH + I.hullH - 1.6, sg * (I.beam / 2 + 0.3));
 { const pad = cyl(11, 0.7, M.dark, 40); pad.position.set(14, 54, 0); slew.add(pad); const post = cyl(3, 3.5, M.dark, 12); post.position.set(14, 51.8, 0); slew.add(post); }
 for (const [x, z, h] of [[-70, 18, 36], [-52, 22, 28], [-20, -20, 22], [-90, -12, 18], [-35, 4, 12]]) { const m = cyl(0.35, h, M.rail, 6); m.position.set(x, 50 + h / 2, z); slew.add(m); }
 // boom: segmented mantle with rings and rails, long barrel, muzzle collar
@@ -239,8 +257,8 @@ for (const z of [12, -12]) railing(GB, V3(0, 10, z), V3(64, 10, z));
 { const tube = cyl(I.boomD / 2, I.boomL - 60, M.dark, 40); tube.rotation.z = Math.PI / 2; tube.position.x = 60 + (I.boomL - 60) / 2; boom.add(tube);
   const mz = cyl(I.boomD / 2 + 0.9, 5, M.dark, 40); mz.rotation.z = Math.PI / 2; mz.position.x = I.boomL - 2.5; boom.add(mz);
   for (let x = 66; x < 100; x += 8) GB.box('rail', V3(x, 0, 0), V3(0.8, I.boomD + 0.8, I.boomD + 0.8)); }
-const rams = [-8, 8].map((z) => { const r = cyl(1.1, 1, M.strut, 12); slew.add(r); return {r, z}; });
-GR.build(rig, M); GS.build(slew, M); GB.build(boom, M);
+const GREEB = [...GR.build(rig, M), ...GS.build(slew, M), ...GB.build(boom, M)];
+const SYS = buildSystems({rig, slew, boom});
 
 // ---------------------------------------------------------------- views (spherical camera moves)
 const deg = Math.PI / 180;
@@ -265,7 +283,7 @@ function camStep(dt) {
 }
 
 // ---------------------------------------------------------------- modes
-const ui = {t: 0, rate: 10, view: 'HERO', mode: 'STUDIO', xray: false, terrain: true, depth: 0, paused: false};
+const ui = {t: 0, rate: 10, view: 'HERO', mode: 'STUDIO', xray: false, terrain: true, depth: 0, paused: false, sys: 0, explode: 0, ghost: false, strobe: true, trip: {}};
 function applyMode() {
   const f = ui.mode === 'FIELD';
   document.body.classList.toggle('field', f);
@@ -292,10 +310,14 @@ function act(k) {
   else if (k === 'g') ui.terrain = !ui.terrain;
   else if (k.startsWith('r:')) ui.rate = +k.slice(2);
   else if (k === 'p') ui.paused = !ui.paused;
+  else if (k.startsWith('s:')) selectSys(+k.slice(2));
+  else if (k === 'ghost') { ui.ghost = !ui.ghost; applyShell(); }
+  else if (k === 'strobe') ui.strobe = !ui.strobe;
+  else if (k.startsWith('f:')) { const f = k.slice(2); ui.trip[f] = !ui.trip[f]; }
   sync();
 }
 function sync() {
-  document.querySelectorAll('.btn').forEach((b) => { const k = b.dataset.k; b.classList.toggle('on', k === `v:${ui.view}` || k === `m:${ui.mode}` || (k === 'x' && ui.xray) || (k === 'g' && ui.terrain) || k === `r:${ui.rate}` || (k === 'p' && ui.paused)); });
+  document.querySelectorAll('.btn').forEach((b) => { const k = b.dataset.k; b.classList.toggle('on', k === `v:${ui.view}` || k === `m:${ui.mode}` || (k === 'x' && ui.xray) || (k === 'g' && ui.terrain) || k === `r:${ui.rate}` || (k === 'p' && ui.paused) || k === `s:${ui.sys}` || (k === 'ghost' && ui.ghost) || (k === 'strobe' && ui.strobe) || (k.startsWith('f:') && ui.trip[k.slice(2)])); });
 }
 addEventListener('keydown', (e) => { if (e.key === 'h' || e.key === 'H') $('hud').style.display = $('hud').style.display === 'none' ? '' : 'none'; });
 $('depth').oninput = (e) => { ui.depth = +e.target.value; };
@@ -310,6 +332,7 @@ const strutInterp = (S, sideIdx, x) => {  // bottom-run deflection between road 
   return a.at(i) * (1 - u) + a.at(Math.min(i + 1, a.length - 1)) * u;
 };
 function pose(S) {
+  S0 = S;
   rig.position.y = S.hull.heave; rig.rotation.set(-S.hull.roll, 0, S.hull.pitch);
   let n = 0;
   SIDES.forEach((zs, si) => BZ(zs).forEach((z, bi) => {
@@ -335,10 +358,7 @@ function pose(S) {
   roads.forEach((w, i) => { const si = Math.floor(i / (2 * I.nRoad)), ri = Math.floor((i % (2 * I.nRoad)) / 2); w.rotation.y = -S.roadAngle; w.position.y = yRoad + S.strut[si * I.nRoad + ri]; });
   struts.forEach((s, i) => { const y0 = yRoad + S.strut[i], y1 = 22; s.position.y = (y0 + y1) / 2; s.scale.y = y1 - y0; });
   slew.rotation.y = S.slew; boom.rotation.z = S.elev;
-  for (const {r, z} of rams) {   // ram from deck front to boom underside, recomputed each frame
-    const a = new THREE.Vector3(66, 12, z), b = new THREE.Vector3(30, -9, z).applyAxisAngle(new THREE.Vector3(0, 0, 1), S.elev).add(boom.position);
-    r.position.copy(a).add(b).multiplyScalar(0.5); r.scale.y = a.distanceTo(b); r.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
-  }
+  updateSystems(S);
   groundAt(S.d, ui.terrain);
   water.visible = S.h > 0; water.position.y = S.h;
   if (ui.mode === 'FIELD') { fig.position.copy(fig.userData.field); saltTex.offset.x = (S.d / (12000 / 400)) % 1; }
@@ -361,21 +381,140 @@ function panels(S) {
   $('clock').textContent = `t ${fmt(S.t, 0)} s · TIME ×${ui.rate}${ui.rate > 1 ? ' (TIME-LAPSE)' : ''} · ${ui.mode} · ${ui.view}`;
 }
 function resize() {
-  const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
+  const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h;
+  const k = Math.min(w / 1600, h / 900); if (typeof ui !== 'undefined' && ui.sys) cam.setViewOffset(w, h, 90 * k, 0, w, h); else cam.clearViewOffset(); cam.updateProjectionMatrix();
   $('hud').style.transform = `scale(${Math.min(w / 1600, h / 900)})`;
 }
 addEventListener('resize', resize); resize();
 
+// ---------------------------------------------------------------- systems runtime: select, cut, ghost, explode, labels, live update
+const SHELL = [M.hull, M.plate, M.panel, M.light, M.rail, M.win, M.pipe, M.dark, M.acc, M.link, M.wheel, M.strut];
+const cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+renderer.localClippingEnabled = true;
+function applyShell() {
+  for (const m of SHELL) {
+    m.clippingPlanes = ui.sys && !ui.ghost ? [cutPlane] : null;
+    const gh = ui.sys && ui.ghost; m.transparent = gh || m === M.plate && ui.xray; m.opacity = gh ? 0.07 : (m === M.plate && ui.xray ? 0.12 : 1); m.depthWrite = !gh; m.needsUpdate = true;
+  }
+  for (const g of GREEB) g.visible = !(ui.sys && ui.ghost);
+  for (const s of SYS) for (const g of s.groups) g.visible = !ui.sys || s.n === ui.sys;
+  SYSMATS.eng.transparent = ui.sys === 1; SYSMATS.eng.opacity = ui.sys === 1 ? 0.3 : 1; SYSMATS.eng.needsUpdate = true;
+}
+const wp = (s) => { const f = s.frame; const p = new THREE.Vector3(...f.t); (f.in === 'slew' ? slew : rig).localToWorld(p); return p; };
+function selectSys(n) {
+  ui.sys = ui.sys === n ? 0 : n; ui.explode = 0; $('explode').value = 0; ui.ghost = true;
+  const s = SYS[ui.sys - 1];
+  $('sysCard').style.display = s ? '' : 'none';
+  document.querySelectorAll('.card').forEach((c) => { if (/SUSPENSION|HAND CHECKS/.test(c.innerText) && c.id !== 'sysCard') c.style.display = s ? 'none' : ''; });
+  if (s) {
+    rig.updateMatrixWorld(true); applyShell();
+    const bb = new THREE.Box3(); const fo = s.frame.focus ? s.parts.filter((p) => s.frame.focus.includes(p.id)).map((p) => p.obj).filter(Boolean) : s.groups; for (const g of fo) bb.expandByObject(g);
+    const c = s.frame.auto === false || bb.isEmpty() ? wp(s) : bb.getCenter(new THREE.Vector3());
+    const sz = bb.getSize(new THREE.Vector3()), dim = Math.max(sz.x, sz.y * 1.6, sz.z);
+    if (s.frame.auto !== false && !bb.isEmpty()) s.frame.r = dim / (2 * Math.tan(16 * Math.PI / 180)) * (s.frame.k ?? 0.95);
+    cutPlane.constant = c.z + (s.frame.in === 'slew' ? 2 : 1);
+    resize();
+    VIEWS.SYS = {t: c.toArray(), az: s.frame.az, el: s.frame.el, r: s.frame.r}; view('SYS');
+    $('sysT').textContent = `${s.n} · ${s.title.toUpperCase()}`; $('sysN').textContent = `${s.parts.length} PARTS`;
+    $('sysPN').textContent = `${s.parts.filter((p) => p.tag === 'S').length} S · ${s.parts.filter((p) => p.tag === 'D').length} D · ${s.parts.filter((p) => p.tag === 'I').length} I`;
+    $('sysParts').innerHTML = s.parts.map((p) => `<div class="prow"><span class="chip c${p.tag}">${p.tag}</span>${p.name}${p.note ? `<div class="nt">${p.note}${p.cite ? ` — <a href="${D.CITE[p.cite][1]}" target="_blank">${D.CITE[p.cite][0]}</a>` : ''}</div>` : (p.cite ? `<div class="nt"><a href="${D.CITE[p.cite][1]}" target="_blank">${D.CITE[p.cite][0]}</a></div>` : '')}</div>`).join('');
+    const chks = D.SYS_CHECKS().filter((c) => c.sys === s.n);
+    $('sysChk').innerHTML = chks.map((c) => `<div class="row"><span>${c.id} ${c.label}</span><span class="${D.sysOK(c) ? 'ok' : 'bad'}">${c.got.toFixed(2)} / ${c.want.toFixed(2)} ${c.unit}</span></div><div class="lab">${c.note}</div>`).join('') || '<div class="lab">—</div>';
+    const fb = {1: [['f:gen', 'TRIP GENSET']], 2: [['f:gen', 'TRIP GENSET']], 3: [['f:motor', 'TRIP MOTOR'], ['strobe', 'STROBE 1/100']], 4: [], 5: [], 6: [], 7: [['f:flood', 'FLOOD COMPT']]}[s.n];
+    btns('sysBtns', [['ghost', 'GHOST SHELL (OFF = SECTION CUT)'], ...fb]);
+  } else view('HERO');
+  applyShell(); sync();
+}
+btns('systems', SYS.map((s) => [`s:${s.n}`, `${s.n} ${s.key.toUpperCase()}`]));
+$('explode').oninput = (e) => { ui.explode = +e.target.value; };
+const tmpV = new THREE.Vector3();
+let sysLive = null;
+function updateSystems(S) {
+  const Y = D.systems(S, {trip: ui.trip, elevRate: 0});
+  sysLive = Y;
+  const [s1, s2, s3, s4, s5, s6, s7] = SYS;
+  // 1 power: online heads glow, pistons on a slider-crank (display slowed ×1/60 when STROBE is on)
+  const nOn = Y.power.nOn, crank = (S.t / ui.rate) * (D.POWER.rpm / 60) * 2 * Math.PI * (ui.strobe ? 1 / 60 : 1);
+  SYSMATS.head.emissiveIntensity = 0.35 + 0.25 * Y.power.loadPct;
+  const r = D.POWER.stroke / 2, l = 1.2;
+  s1.pistonList.forEach((pp, i) => {
+    const gen = Math.floor(i / 8), on = gen < nOn, th = crank + pp.c * (Math.PI * 2 * 3 / 8) + gen;
+    const yc = 8 + 0.4 + 3.4, py = yc + (on ? r * Math.cos(th) + Math.sqrt(l * l - (r * Math.sin(th)) ** 2) : r + l);
+    m4.compose(pv.set(pp.x, py, pp.z), q.identity(), sv.set(1, 1, 1)); s1.pistons.setMatrixAt(i, m4);
+    const cx = on ? r * Math.sin(th) : 0, cy = yc + (on ? r * Math.cos(th) : r);
+    e3.set(0, 0, Math.atan2(-cx, py - cy)); q.setFromEuler(e3); m4.compose(pv.set(pp.x + cx / 2, (py + cy) / 2, pp.z), q, sv.set(1, 1, 1)); s1.rods.setMatrixAt(i, m4);
+  });
+  s1.pistons.instanceMatrix.needsUpdate = true; s1.rods.instanceMatrix.needsUpdate = true;
+  // 2 electrical: cable glow by utilisation (green → amber → red), pulsing with load
+  const u = Y.elec.cableUtil; SYSMATS.cab.emissive.setHSL(0.33 - 0.33 * Math.min(1, u), 1, 0.5); SYSMATS.cab.emissiveIntensity = 0.25 + 0.6 * u * (0.75 + 0.25 * Math.sin(performance.now() / 120));
+  // 3 drivetrain: exact ratios; stages above the sprocket shown at 1/100 when STROBE is on
+  const k3 = ui.strobe ? 0.01 : 1, aS = S.sprocketAngle, aP = aS * 12 * k3 * 10, aB = aS * D.DRIVE.finalRatio * k3, aM = aB * D.DRIVE.stage1;
+  for (const T of s3.trains) { T.carrier.rotation.z = -aS; T.rim.rotation.z = -aS; T.sunM.rotation.z = -aB; T.bullM.rotation.z = -aB; T.planets.forEach((p) => (p.rotation.z = aB * 0.6)); T.pinions.forEach((p, i) => (p.rotation.z = i < Y.drive.motorsUp ? aM : p.rotation.z)); }
+  for (const T of s3.podTrains) { T.bm.rotation.z = -aB; T.pins.forEach((p) => (p.rotation.z = aM)); }
+  // 4 suspension: rod extension, accumulator colour by gas pressure ratio
+  s4.stations.forEach((st, i) => {
+    const x = S.strut[i], yAx = 1.04 + I.rRoad + x, yTop = 16.4;
+    st.rod.forEach((rd) => { rd.position.y = (yAx + yTop) / 2; rd.scale.y = yTop - yAx; });
+    const pr = Y.susp.p[i] / D.SUSP.pStatic; st.acc.forEach((a) => (a.scale.y = 1 / Math.max(0.4, pr) ** 0.35));
+  });
+  SYSMATS.acc.emissiveIntensity = Y.susp.bottom ? 0.9 : 0.3 * Math.max(0, Y.susp.pRatio - 1);
+  // 5 slewing: rollers orbit at half the slew angle; pinions at 960/18 × slew
+  s5.rows.forEach((im) => { for (let i = 0; i < D.SLEW.N; i++) { const a = i / D.SLEW.N * Math.PI * 2 + S.slew / 2; m4.compose(pv.set(im.userData.rad * Math.cos(a), im.userData.y, im.userData.rad * Math.sin(a)), q.setFromEuler(e3.set(0, -a, 0)), sv.set(1, 1, 1)); im.setMatrixAt(i, m4); } im.instanceMatrix.needsUpdate = true; });
+  for (const d of s5.drives) d.pn.rotation.y = -S.slew * D.SLEW.ringT / D.SLEW.pinT;
+  // 6 rams: barrel fixed on deck, rod to the boom lug (both live from elevation)
+  for (const rm of s6.rams) {
+    const a = tmpV.set(66, 9, rm.z).clone(), b = new THREE.Vector3(30, -10, rm.z).applyAxisAngle(new THREE.Vector3(0, 0, 1), S.elev).add(boom.position);
+    const dir = b.clone().sub(a), L = dir.length(); dir.normalize(); const qq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir), Lb = 14;
+    rm.barrel.quaternion.copy(qq); rm.barrel.position.copy(a).addScaledVector(dir, Lb / 2); rm.barrel.scale.y = Lb;
+    rm.rod.quaternion.copy(qq); rm.rod.position.copy(a).addScaledVector(dir, (Lb * 0.8 + L) / 2); rm.rod.scale.y = Math.max(1, L - Lb * 0.8);
+  }
+  // 7 hull: thrusters deploy when afloat, propellers turn; ballast level; flood heel
+  const dep = S.floating ? 1 : 0; for (const t of s7.thr) { t.th.position.y = I.unitH + (dep ? 0 : 27.5); t.th.visible = true; t.prop.rotation.x += dep ? 0.08 : 0; }
+  s7.ballast.forEach((b, i) => { const f = ui.trip.flood && i === 1 ? 1 : 0.35; b.scale.y = 16 * f; b.position.y = 6 + 8 * f; });
+  if (ui.trip.flood) rig.rotation.x += -Y.hull.heel;
+  // exploded view of the active system
+  for (const s of SYS) for (const p of s.parts) if (p.base && p.obj.position) { if (s.n === ui.sys) p.obj.position.copy(p.base).addScaledVector(p.ex, ui.explode * 2.5); else if (p.obj.position.distanceToSquared(p.base) > 1e-6 && !(p.obj.isInstancedMesh)) p.obj.position.copy(p.base); }
+}
+function labels() {
+  const s = SYS[ui.sys - 1]; const box = $('labels'), lead = $('leads');
+  if (!s) { box.innerHTML = ''; lead.innerHTML = ''; return; }
+  const sc = Math.min(innerWidth / 1600, innerHeight / 900), pts = [];
+  for (const p of s.parts.filter((p) => p.key)) {
+    const bb = new THREE.Box3().setFromObject(p.obj); if (bb.isEmpty()) continue; bb.getCenter(tmpV); const v = tmpV.clone().project(cam);
+    if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) continue;
+    pts.push({p, x: (v.x + 1) / 2 * innerWidth / sc, y: (1 - v.y) / 2 * innerHeight / sc});
+  }
+  pts.sort((a, b) => a.y - b.y); let lastL = 90, lastR = 90;
+  let html = '', svg = '';
+  for (const t of pts) { const right = t.x > 760; const lx = right ? Math.min(1120, t.x + 90) : Math.max(360, t.x - 90); let ly = Math.max(t.y, (right ? lastR : lastL) + 22); if (right) lastR = ly; else lastL = ly;
+    html += `<div class="lbl" style="left:${right ? lx + 4 : lx - 4}px;top:${ly - 9}px;transform:translateX(${right ? 0 : -100}%)"><span class="chip c${t.p.tag}">${t.p.tag}</span>${t.p.name}</div>`;
+    svg += `<line x1="${t.x}" y1="${t.y}" x2="${lx}" y2="${ly}"/><circle cx="${t.x}" cy="${t.y}" r="3"/>`; }
+  box.innerHTML = html; lead.innerHTML = svg;
+}
+function sysPanel() {
+  const s = SYS[ui.sys - 1]; if (!s || !sysLive) return; const Y = sysLive; const R = (l, v, c = '') => `<div class="row"><span class="lab">${l}</span><span class="${c}">${v}</span></div>`;
+  const rows = {
+    1: [['DEMAND', `${fmt(Y.power.Pdem / 1e6, 1)} MW`], ['GENSETS ONLINE', `${Y.power.nOn} of 12${ui.trip.gen ? ' (1 TRIPPED)' : ''}`], ['LOAD / ONLINE CAP', `${fmt(Y.power.loadPct * 100, 0)}%`, Y.power.loadPct > 0.95 ? 'bad' : 'ok'], ['PER GENSET', `${fmt(Y.power.perGen / 1e6, 2)} MW`], ['FUEL (MGO, 177.5 g/kWh)', `${fmt(Y.power.fuelKgH / 1e3, 2)} t/h`], ['FIRING FREQUENCY', `${fmt(Y.power.firingHz, 1)} Hz (514 rpm × 8 cyl / 2)`], ['STATUS', Y.power.shed ? 'LOAD SHED' : 'NORMAL', Y.power.shed ? 'bad' : 'ok']],
+    2: [['GENSET FEEDER @11 kV', `${fmt(Y.elec.genI, 0)} A`], ['SLIP RING (HULL LOADS)', `${fmt(Y.elec.slipI, 0)} A @ 11 kV`], ['MOTOR CURRENT @690 V', `${fmt(Y.elec.motorI, 0)} A`], ['CABLE UTILISATION', `${fmt(Y.elec.cableUtil * 100, 0)}% of 4 × 398 A`, Y.elec.cableUtil > 1 ? 'bad' : 'ok'], ['LOSS, 120 m MOTOR RUN', `${fmt(Y.elec.lossW(120) / 1e3, 1)} kW per motor`], ['CABLE RUNS ROUTED', `${SYS[1].cables.length} (${fmt(SYS[1].cables.reduce((a, c) => a + c.userData.len, 0), 0)} m modelled)`]],
+    3: [['SPROCKET', `${fmt(Y.drive.sprRpm, 3)} rpm · ${fmt(Y.drive.Tspr / 1e6, 0)} MN·m`], ['BULL GEAR', `${fmt(Y.drive.s1Rpm, 1)} rpm`], ['MOTORS', `${fmt(Y.drive.motRpm, 0)} rpm · ${fmt(Y.drive.Tmot / 1e3, 1)} kN·m each`], ['MOTORS RUNNING / BELT', `${Y.drive.motorsUp} of ${D.DRIVE.motorsMain}`], ['MOTOR LOAD', `${fmt(Y.elec.motorLoad * 100, 0)}%`, Y.drive.overload ? 'bad' : 'ok'], ['PINION MESH', `${fmt(Y.drive.meshHz, 0)} Hz`], ['DISPLAY', ui.strobe ? 'STROBE: fast stages ×1/100' : 'TRUE SPEED (aliases)']],
+    4: [['STATIC STRUT PRESSURE', '250 bar'], ['PEAK STRUT PRESSURE', `${fmt(Y.susp.pMax / 1e5, 0)} bar · ${fmt(Y.susp.pRatio, 2)}× static`, Y.susp.pRatio > 2.9 ? 'bad' : 'ok'], ['STATION STIFFNESS', `${fmt(Y.susp.k / 1e6, 1)} MN/m`], ['RIDE FREQUENCY', `${fmt(Y.susp.fn, 2)} Hz`], ['MAX COMPRESSION', `${fmt(S0.maxStrut, 2)} m of ${I.stroke} m`], ['BOTTOMING', Y.susp.bottom ? 'YES' : 'NO', Y.susp.bottom ? 'bad' : 'ok']],
+    5: [['AXIAL LOAD (UPPER WORKS)', `${fmt(Y.slew.Fa / 1e6, 0)} MN`], ['OVERTURNING MOMENT', `${fmt(Y.slew.M / 1e9, 2)} GN·m`], ['MAX ROLLER LOAD', `${fmt(Y.slew.Pmax / 1e6, 2)} MN · ${fmt(Y.slew.ratio * 100, 0)}% of C0 (I)`, Y.slew.ratio > 1 ? 'bad' : 'ok'], ['SLEW TORQUE (μ 0.006, I)', `${fmt(Y.slew.Tslew / 1e6, 0)} MN·m`], ['SLEW POWER @0.05°/s', `${fmt(Y.slew.Pw / 1e3, 0)} kW`], ['SLEW ANGLE', `${fmt(S0.slew / deg, 1)}°`]],
+    6: [['ELEVATION', `${fmt(S0.elev / deg, 2)}°`], ['BOOM MOMENT AT TRUNNION', `${fmt(Y.gun.Mt / 1e9, 2)} GN·m`], ['RAM PRESSURE', `${fmt(Y.gun.pRam / 1e5, 0)} bar of 350`, Y.gun.ratio > 1 ? 'bad' : 'ok'], ['HPU', `${D.GUN.pumps} × A4VSO 1000 · ${fmt(D.GUN.pumpkW * (D.GUN.pumps - 1) / 1e3, 1)} MW hydraulic`], ['MAX ELEVATION RATE', '0.1°/s (I)'], ['GUN INTERNALS', 'VISUAL ONLY — NO PERFORMANCE DATA']],
+    7: [['DRAFT AFLOAT', `${fmt(K.DRAFT, 1)} m`], ['GM / BM', `${fmt(Y.hull.GM, 1)} m / ${fmt(Y.hull.BM, 1)} m`], ['HEEL (FLOOD 1 COMPT)', `${fmt(Y.hull.heel / deg, 2)}°`, ui.trip.flood ? 'bad' : 'ok'], ['BALLAST', `${fmt(Y.hull.ballastH, 2)} h per metre of draft`], ['THRUSTERS', `${D.HULL.thrusters} × 5.5 MW · ${Y.hull.thrusters}`], ['EXTINGUISHERS', `${EXTS.length} placed`]],
+  }[s.n];
+  $('sysRead').innerHTML = rows.map((r) => R(...r)).join('');
+}
+let S0 = null;
 const opts = () => (ui.mode === 'FIELD' ? {terrain: false, depth: ui.depth, slew: 0, elev: 0.012} : {terrain: ui.terrain, depth: ui.depth});
-function renderAt(t) { ui.t = t; const S = K.state(t, opts()); pose(S); panels(S); renderer.render(scene, cam); }
+function renderAt(t) { ui.t = t; const S = K.state(t, opts()); pose(S); panels(S); sysPanel(); renderer.render(scene, cam); labels(); }
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (!ui.paused && !window.__hold) ui.t += dt * ui.rate;
   camStep(dt); ctl.update();
-  const S = K.state(ui.t, opts()); pose(S); panels(S);
-  renderer.render(scene, cam); requestAnimationFrame(frame);
+  const S = K.state(ui.t, opts()); pose(S); panels(S); sysPanel();
+  renderer.render(scene, cam); labels(); requestAnimationFrame(frame);
 }
 applyMode(); applyDisplay(); cam.position.copy(sph(VIEWS.HERO)); ctl.target.set(...VIEWS.HERO.t); sync();
 requestAnimationFrame(frame);
-window.__app = {ready: true, ui, view, act, renderAt, VIEWS, settle: () => { if (camTo) { camK = 0.999; camStep(1); } }, K, scene, cam, grass, salt, fig};
+window.__app = {ready: true, ui, view, act, renderAt, VIEWS, settle: () => { if (camTo) { camK = 0.999; camStep(1); } }, K, scene, cam, grass, salt, fig, SYS, selectSys, renderer, EXTS};

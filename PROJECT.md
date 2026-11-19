@@ -62,3 +62,10 @@ Known issues for pass 2: TOP view shows only the slewed upper deck (hull/tracks 
 - Seeded greebles (`greeble.js`): recursive panel subdivision, vents, sparse lit windows, pipes, ladders, catwalks, railings — instanced. Upper deck is an extruded side profile with a light chamfer glacis, helideck, masts; segmented boom mantle; chunky 3-block shoes; hub covers on track plates.
 - FIELD mode: telephoto (9°) at 22 m camera height (reference composition, not eye level), overcast haze, salt pan, grass foreground, 1.8 m figure at the boundary, contact shadow, env-map metal on shoes.
 - Side-by-side: `stills/pass2-field-vs-ref.jpg`. Remaining gap: greebles read as flat boxes (no fine horizontal lattice / railing density), salt pan lacks the plate pattern, no bright shoe faces at the track ends, deck proportions taller than the reference.
+
+## Pass 3 — 7-system internals (WIP, not shipped)
+- Systems isolate on select (other systems + greebles hidden, shell ghosted 7%; section cut is the alternate).
+- Cameras auto-frame on each system's key parts; subject centred in the free viewport between HUD panels.
+- Detail added: genset rocker covers, fuel pumps + HP lines, crankcase doors, mounts, sump; sprocket rim (29 T) + spoked carrier + motor cowls/feeders; strut end caps, clevises, bogie arms, accumulator domes + gauges, per-cylinder hoses; breech ring, loading tray, cradle ribs, recoil blocks, trunnion caps.
+- Side-by-side vs Solo-12 (stills/systems/compare1-2.jpg). Scramjet v8 does not render under SwiftShader (stalls at "Loading the test hull"), so its bar is taken from the v8 handoff brief, not stills.
+- Grade vs bar: DRIVE, SLEW near pass; GUN, HULL borderline; POWER, ELEC, SUSP fail on composition (no clear hero, foreground clutter).
