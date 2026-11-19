@@ -72,3 +72,9 @@ Known issues for pass 2: TOP view shows only the slewed upper deck (hull/tracks 
 - Joe's calls (11/19): Power, Elec, Susp = pull-out unit by default + in-situ toggle; Scramjet bar = v8 handoff brief only (data/sourcing).
 - Added: pull-out mode (isolates one genset room / slip ring / strut station, hides hull + ground), camera follows the system as the machine moves and slews.
 - Grade vs Solo-12 composition: POWER, DRIVE, SLEW pass; ELEC, SUSP, GUN, HULL not yet (plain or sparse hero, off-centre or busy in-situ background). Not shipped.
+
+## Pass 4 — Blender asset pipeline (all 7 systems, Joe's call 11/19: all 7 to Blender, bigger page OK)
+- blender/blib.py authors in three.js coordinates, joins each part into one named mesh with its pivot, exports GLB.
+- blender/s1..s7_*.py → machines/colossal/assets/*.glb (18 assets). glb.js inlines + swaps them in; old procedural meshes move to layer 1 so labels, explode and motion still run off them; rotating GLB nodes (gears, pinions, rods, accumulators, props) copy the live model's transforms every frame.
+- Pull-out views now on 1, 2, 4, 6, 7. Page is 28.6 MB (over the 20 MB artifact file cap; ship needs assets external).
+- Grade vs Solo-12: POWER, SLEW, GUN pass; DRIVE near; ELEC (slip ring alone), SUSP (no track run in frame), HULL (thruster small) not yet.

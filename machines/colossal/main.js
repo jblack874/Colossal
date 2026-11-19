@@ -7,6 +7,27 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {makeCollector, face, railing, catwalk} from './greeble.js';
 import {buildSystems, SYSMATS, EXTS} from './sys3d.js';
 import * as D from './sysdata.js';
+import {parseGLB, hideOld, place, repoint, mats as glbMats} from './glb.js';
+import GENSET from './assets/genset.glb';
+import ROOMKIT from './assets/roomkit.glb';
+import SWB from './assets/swb.glb';
+import TX from './assets/transformer.glb';
+import SLIP from './assets/slipring.glb';
+import BRUSH from './assets/brushgear.glb';
+import DRIVES from './assets/drives.glb';
+import TRAIN from './assets/train.glb';
+import PODTRAIN from './assets/podtrain.glb';
+import STATION from './assets/station.glb';
+import SLEWFIXED from './assets/slewfixed.glb';
+import SLEWINNER from './assets/slewinner.glb';
+import SLEWDRIVE from './assets/slewdrive.glb';
+import HPU from './assets/hpu.glb';
+import GUN from './assets/gun.glb';
+import THRUSTER from './assets/thruster.glb';
+import PUMP from './assets/pump.glb';
+import FIREPUMP from './assets/firepump.glb';
+import LIFEBOAT from './assets/lifeboat.glb';
+import HYDRANT from './assets/hydrant.glb';
 
 const {I, MAIN, POD, ROAD, pitch, rS, rP} = K;
 for (const c of K.CHECK) console.log(`hand check ${c.id} ${c.label}: ${c.got.toFixed(3)} vs ${c.want.toFixed(3)} ${c.unit} → ${K.checkOK(c) ? 'PASS' : 'FAIL'} (${c.note})`);
@@ -259,6 +280,71 @@ for (const z of [12, -12]) railing(GB, V3(0, 10, z), V3(64, 10, z));
   for (let x = 66; x < 100; x += 8) GB.box('rail', V3(x, 0, 0), V3(0.8, I.boomD + 0.8, I.boomD + 0.8)); }
 const GREEB = [...GR.build(rig, M), ...GS.build(slew, M), ...GB.build(boom, M)];
 const SYS = buildSystems({rig, slew, boom});
+// ---------------------------------------------------------------- Blender hero assets (blender/*.py), swapped in once parsed
+const GLB = {ready: false};
+(async () => {
+  const S1 = SYS[0];
+  const [gen, kit] = await Promise.all([parseGLB(GENSET), parseGLB(ROOMKIT)]);
+  GLB.eng = glbMats(gen).engine_grey.clone(); GLB.head = glbMats(gen).head_grey;
+  for (const id of ['heads', 'rocker', 'fpump', 'doors', 'mounts']) S1.parts.find((p) => p.id === id).obj.layers.set(1);
+  S1.hp.layers.set(1);
+  S1.gensets.forEach((gs, i) => {
+    hideOld(gs); const c = place(gen, gs);
+    for (const n of ['block', 'doors']) c.getObjectByName(n).material = GLB.eng;
+    if (i === 0) repoint(S1, c, ['block', 'heads', 'rocker', 'fpump', 'doors', 'mounts', 'exh', 'turbo', 'cac', 'alt']);
+  });
+  const keep = [...S1.parts.filter((p) => /^room\d/.test(p.id)).map((p) => p.obj), ...(SYS[6].ext || [])];
+  S1.rooms.forEach((R, i) => { hideOld(R.g, {direct: true, keep}); const c = place(kit, R.g, {mirrorZ: R.s < 0}); if (i === 0) repoint(S1, c, ['day', 'gvu', 'sep', 'co2', 'crane', 'fans']); });
+  // 2 electrical
+  const S2 = SYS[1];
+  const [swb, tx, slip, brush, drv] = await Promise.all([SWB, TX, SLIP, BRUSH, DRIVES].map(parseGLB));
+  S2.swbs.forEach((sw, i) => { sw.layers.set(1); const R = S1.rooms[i].g.position, s = S1.rooms[i].s; const c = place(swb, S2.EG, {x: R.x - 7, y: 21.2, z: R.z + 6 * s, mirrorZ: s > 0}); if (i === 0) repoint(S2, c, ['swb']); });
+  S2.txs.forEach((t, i) => { hideOld(t); const c = place(tx, t); if (i === 0) repoint(S2, c, ['tx']); });
+  hideOld(S2.slipR); hideOld(S2.slipS); repoint(S2, place(slip, S2.slipR), ['slipring', 'swivel']); repoint(S2, place(brush, S2.slipS), ['brushes']);
+  S2.drv.forEach((d, i) => { hideOld(d); const c = place(drv, d); if (i === 0) repoint(S2, c, ['drives']); });
+  // 3 drivetrain: rotating GLB nodes copy the procedural model's transforms every frame
+  const S3 = SYS[2]; GLB.sync = [];
+  const [train, podtrain] = await Promise.all([TRAIN, PODTRAIN].map(parseGLB));
+  const pair = (root, name, old, sg, off = null) => { const n = root.getObjectByName(name); if (n && old) GLB.sync.push([n, old, sg, off]); };
+  for (const T of S3.trains) {
+    const g = T.ring.parent, sg = Math.sign(g.position.z) || 1; hideOld(g); const c = place(train, g, {mirrorZ: sg < 0});
+    (GLB.drums ??= []).push(c.getObjectByName('hubdrum'));
+    pair(c, 'ringgear', T.ring, sg); pair(c, 'carrier', T.carrier, sg); pair(c, 'sun', T.sunM, sg); pair(c, 'bull', T.bullM, sg); pair(c, 'sprocket', T.rim, sg);
+    T.planets.forEach((p, k) => pair(c, `planet${k}`, p, sg)); T.pinions.forEach((p, k) => pair(c, `pinion${k}`, p, sg)); T.motors.forEach((p, k) => pair(c, `motor${k}`, p, sg));
+  }
+  for (const T of S3.podTrains) {
+    const g = T.bm.parent, sg = Math.sign(g.position.z) || 1; hideOld(g); const c = place(podtrain, g, {mirrorZ: sg < 0});
+    pair(c, 'podbull', T.bm, sg); T.pins.forEach((p, k) => pair(c, `podpin${k}`, p, sg));
+  }
+  // 4 suspension stations: barrels static, rods + accumulators follow the live strut model
+  const S4 = SYS[3]; const station = await parseGLB(STATION); GLB.acc = glbMats(station).accumulator; GLB.pullOnly = [];
+  for (let i = 0; i < S4.nOld; i++) S4.SG.children[i].layers.set(1);
+  S4.stations.forEach((st) => {
+    const off = new THREE.Vector3(st.x, 0, st.zs), c = place(station, S4.SG, {x: st.x, z: st.zs});
+    st.rod.forEach((r, k) => pair(c, `rod${k}`, r, 1, off)); st.acc.forEach((a, k) => pair(c, `acc${k}`, a, 1, off));
+    GLB.pullOnly.push(c.getObjectByName('wheel'), c.getObjectByName('trackrun'));
+    if (st.si === 0 && st.ri === 3) repoint(S4, c, ['cyl', 'manifold', 'hose', 'bearing', 'axle']);
+  });
+  // 5 slewing
+  const S5 = SYS[4], [LG, LS] = S5.groups;
+  const [sfix, sinn, sdrv] = await Promise.all([SLEWFIXED, SLEWINNER, SLEWDRIVE].map(parseGLB));
+  hideOld(LG, {keep: S5.rows, direct: true}); repoint(S5, place(sfix, LG), ['outer', 'lowerRing', 'ringgear', 'bolts', 'pedestal', 'grease']);
+  S5.parts.find((p) => p.id === 'inner').obj.layers.set(1); repoint(S5, place(sinn, LS), ['inner']);
+  for (const d of S5.drives) { hideOld(d.dv); pair(place(sdrv, d.dv), 'pinion', d.pn, 1); }
+  // 6 gun: HPU room + gun internals (visual only)
+  const S6 = SYS[5]; const [hpu, gun] = await Promise.all([HPU, GUN].map(parseGLB));
+  const H = S6.parts.find((p) => p.id === 'pumps').obj.parent; hideOld(H); repoint(S6, place(hpu, H), ['pumps', 'resv', 'accB', 'vblk', 'filt']);
+  const GB = S6.groups[1]; hideOld(GB); repoint(S6, place(gun, GB), ['trunnion', 'cradle', 'recoil', 'breech', 'bring', 'tray', 'carrier', 'hoist', 'jacket', 'bore']);
+  // 7 hull: thrusters, pumps, lifeboats, hydrants
+  const S7 = SYS[6]; const [thrG, pumpG, fpG, boatG, hydG] = await Promise.all([THRUSTER, PUMP, FIREPUMP, LIFEBOAT, HYDRANT].map(parseGLB));
+  S7.thr.forEach((t, i) => { hideOld(t.th); const c = place(thrG, t.th); pair(c, 'prop', t.prop, 1); if (i === 0) repoint(S7, c, ['nozzle']); });
+  S7.bpumps.forEach((g, i) => { hideOld(g); place(pumpG, g); });
+  S7.fpumps.forEach((g, i) => { hideOld(g); place(fpG, g); });
+  S7.boats.forEach((b) => { hideOld(b); place(boatG, b, {mirrorZ: b.position.z < 0}); });
+  { const im = S7.hyd, M4 = new THREE.Matrix4(), P = new THREE.Vector3(); im.layers.set(1);
+    for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, M4); P.setFromMatrixPosition(M4); const c = place(hydG, im.parent, {x: P.x, y: P.y, z: P.z}); if (P.z < 0) c.rotation.y = Math.PI; if (i === 0) repoint(S7, c, ['hydrant']); } }
+  GLB.ready = true; window.__glb = true; applyShell();
+})();
 
 // ---------------------------------------------------------------- views (spherical camera moves)
 const deg = Math.PI / 180;
@@ -398,7 +484,7 @@ function applyShell() {
     const gh = ui.sys && ui.ghost; m.transparent = gh || m === M.plate && ui.xray; m.opacity = gh ? 0.07 : (m === M.plate && ui.xray ? 0.12 : 1); m.depthWrite = !gh; m.needsUpdate = true;
   }
   for (const g of GREEB) g.visible = !(ui.sys && ui.ghost);
-  for (const s of SYS) for (const g of s.groups) g.visible = !ui.sys || s.n === ui.sys;
+  for (const s of SYS) for (const g of s.groups) g.visible = ui.sys ? s.n === ui.sys : ui.xray;
   const S = SYS[ui.sys - 1], P = ui.sys && ui.pull && S?.frame.pull;
   const ENV = [ground, water, salt, grass, fig, contact];
   if (P && !ui._env) ui._env = ENV.map((o) => o.visible);
@@ -419,7 +505,11 @@ function applyShell() {
       tmp.setFromObject(o); o.visible = box.containsPoint(tmp.getCenter(cc));
     });
     for (const p of S.parts) if (P.count?.[p.id] != null && p.obj?.isInstancedMesh) p.obj.count = P.count[p.id];
+    if (P.hide) for (const g of S.groups) g.traverse((o) => { if (P.hide.includes(o.name)) o.visible = false; });
   } else if (ui.sys) for (const g of S.groups) g.traverse((o) => { o.visible = true; });
+  if (GLB.pullOnly) for (const n of GLB.pullOnly) if (n && !(ui.pull && ui.sys === 4)) n.visible = false;
+  if (GLB.drums) for (const d of GLB.drums) d.visible = ui.sys !== 3;
+  if (GLB.eng) { const t = ui.sys === 1 && !ui.pull; GLB.eng.transparent = t; GLB.eng.opacity = t ? 0.28 : 1; GLB.eng.depthWrite = !t; GLB.eng.needsUpdate = true; }
   SYSMATS.eng.transparent = ui.sys === 1; SYSMATS.eng.opacity = ui.sys === 1 ? 0.3 : 1; SYSMATS.eng.needsUpdate = true;
 }
 const wp = (s) => { const f = s.frame; const p = new THREE.Vector3(...f.t); (f.in === 'slew' ? slew : rig).localToWorld(p); return p; };
@@ -459,6 +549,7 @@ function updateSystems(S) {
   // 1 power: online heads glow, pistons on a slider-crank (display slowed ×1/60 when STROBE is on)
   const nOn = Y.power.nOn, crank = (S.t / ui.rate) * (D.POWER.rpm / 60) * 2 * Math.PI * (ui.strobe ? 1 / 60 : 1);
   SYSMATS.head.emissiveIntensity = 0.35 + 0.25 * Y.power.loadPct;
+  if (GLB.head) { GLB.head.emissive.setHex(0xff5a1f); GLB.head.emissiveIntensity = SYSMATS.head.emissiveIntensity * (ui.sys === 1 ? 1 : 0); }
   const r = D.POWER.stroke / 2, l = 1.2;
   s1.pistonList.forEach((pp, i) => {
     const gen = Math.floor(i / 8), on = gen < nOn, th = crank + pp.c * (Math.PI * 2 * 3 / 8) + gen;
@@ -497,6 +588,8 @@ function updateSystems(S) {
   if (ui.trip.flood) rig.rotation.x += -Y.hull.heel;
   // exploded view of the active system
   for (const s of SYS) for (const p of s.parts) if (p.base && p.obj.position) { if (s.n === ui.sys) p.obj.position.copy(p.base).addScaledVector(p.ex, ui.explode * 2.5); else if (p.obj.position.distanceToSquared(p.base) > 1e-6 && !(p.obj.isInstancedMesh)) p.obj.position.copy(p.base); }
+  if (GLB.sync) for (const [n, o, sg, off] of GLB.sync) { n.position.copy(o.position); if (off) n.position.sub(off); n.position.z *= sg; n.quaternion.copy(o.quaternion); n.scale.copy(o.scale); }
+  if (GLB.acc) { GLB.acc.emissive.setHex(0xff3b1f); GLB.acc.emissiveIntensity = SYSMATS.acc.emissiveIntensity; }
 }
 function labels() {
   const s = SYS[ui.sys - 1]; const box = $('labels'), lead = $('leads');

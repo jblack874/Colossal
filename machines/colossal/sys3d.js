@@ -51,7 +51,7 @@ export function buildSystems(ctx) {
   const ext = (parent, x, y, z, where) => EXTS.push({parent, x, y, z, where});
 
   // ================================================================ 1 POWER PLANT (upper deck, rear block)
-  const S1 = sys(1, 'power', 'Power plant · 12 × 8 MW dual-fuel gensets', {focus: ['block', 'alt', 'turbo', 'cac', 'exh'], k: 3.2, pull: {ids: ['block', 'alt', 'turbo', 'cac', 'exh', 'heads', 'rocker', 'fpump', 'doors', 'mounts', 'pistons', 'gvu'], count: {heads: 8, rocker: 8, fpump: 8, doors: 16, mounts: 8, pistons: 8}, k: 1.9}, in: 'slew', t: [-118, 11, 0], az: -32, el: 30, r: 125});
+  const S1 = sys(1, 'power', 'Power plant · 12 × 8 MW dual-fuel gensets', {focus: ['block', 'alt', 'turbo', 'cac', 'exh'], k: 3.2, pull: {ids: ['block', 'alt', 'turbo', 'cac', 'exh', 'heads', 'rocker', 'fpump', 'doors', 'mounts', 'pistons', 'gvu'], count: {heads: 8, rocker: 8, fpump: 8, doors: 16, mounts: 8, pistons: 8}, hide: ['crane', 'fans', 'lights', 'cable_tray'], k: 1.9}, in: 'slew', t: [-118, 11, 0], az: -32, el: 30, r: 125});
   const P = grp(slew); S1.groups.push(P);
   const E = D.POWER, mBlock = mat('eng', 0x46505a, {m: 0.6, r: 0.45}), mHead = mat('head', 0x7f8a94, {m: 0.7, r: 0.35, e: 0xff5a1f, ei: 0}), mAlt = mat('alt', 0x2f5d8a, {m: 0.5, r: 0.4}), mBase = mat('base', 0x2b2d30, {m: 0.6}), mPipe = mat('exh', 0x9b8f7e, {m: 0.8, r: 0.3}), mTank = mat('tank', 0xc9b25a, {m: 0.3, r: 0.6}), mWhite = mat('white', 0xe9e8e3, {m: 0.2, r: 0.5}), mCO2 = mat('co2', 0xb22222, {m: 0.4, r: 0.4});
   const ROOMS = [];
@@ -61,11 +61,11 @@ export function buildSystems(ctx) {
   const headGeo = new THREE.BoxGeometry(0.95, 1.1, 1.3), pistGeo = new THREE.CylinderGeometry(E.bore / 2 * 0.98, E.bore / 2 * 0.98, 0.7, 16), rodGeo = new THREE.BoxGeometry(0.16, 1.2, 0.2);
   const heads = [], pistons = [], rods = [];
   ROOMS.forEach((R, ri) => {
-    const room = grp(P, R.x, 8, R.z);
+    const room = grp(P, R.x, 8, R.z); (S1.rooms ??= []).push({g: room, s: Math.sign(R.z)});
     box(30, 0.4, 26, mBase, room, 0, 0.2, 0);                                           // engine room floor plate
     const fr = part(S1, `room${ri}`, `Engine room ${ri + 1} (3 gensets)`, 'S', 'Sleipnir groups its 12 engines three per room in four engine rooms', 'khlRooms', box(30, 12, 0.3, mat('bulk', 0x6b6f73, {m: 0.3, t: true, op: 0.35}), room, 0, 6, 13 * Math.sign(R.z)), [0, 0, 0]);
     for (let k = 0; k < 3; k++) {
-      const gz = (k - 1) * 7.5, gs = grp(room, 0, 0.4, gz); engines.push(gs);
+      const gz = (k - 1) * 7.5, gs = grp(room, 0, 0.4, gz); engines.push(gs); (S1.gensets ??= []).push(gs);
       const L = E.L, Lg = L + E.alt.L + 1;
       box(Lg, 0.9, 3.6, mBase, gs, 0, 0.45, 0);                                          // common base frame
       const blk = box(L, 4.2, E.Wd, mBlock, gs, -Lg / 2 + L / 2, 3.0, 0);                // crankcase + block
@@ -114,7 +114,7 @@ export function buildSystems(ctx) {
   const rock = inst(new THREE.BoxGeometry(0.8, 0.5, 1.1), mat('rock', 0x9aa3ab, {m: 0.8, r: 0.3}), DET.rocker, P);
   const fpump = inst(mergeAll([new THREE.BoxGeometry(0.5, 0.9, 0.5), new THREE.CylinderGeometry(0.05, 0.05, 1.4, 6).translate(0, 1.1, 0)]), mat('fp', 0x6c757d, {m: 0.8}), DET.pump, P);
   const doors = inst(mergeAll([new THREE.BoxGeometry(0.85, 1.1, 0.06), new THREE.CylinderGeometry(0.06, 0.06, 0.1, 8).rotateX(Math.PI / 2).translate(0, 0, 0.06)]), mat('door', 0x58616a, {m: 0.6}), DET.door, P);
-  const hp = inst(new THREE.CylinderGeometry(0.035, 0.035, 1.3, 6), mat('hpline', 0xc9ced3, {m: 1, r: 0.2}), DET.hp, P);
+  const hp = inst(new THREE.CylinderGeometry(0.035, 0.035, 1.3, 6), mat('hpline', 0xc9ced3, {m: 1, r: 0.2}), DET.hp, P); S1.hp = hp;
   const mounts = inst(new THREE.CylinderGeometry(0.22, 0.26, 0.3, 12), mat('mount', 0x141414, {m: 0.1, r: 0.9}), DET.mount, P); part(S1, 'heads', 'Cylinder heads, 96 (glow = engine online)', 'S', '12 engines × 8 cylinders', 'manDF', S1.heads, [0, 3, 0], true);
   S1.pistons = new THREE.InstancedMesh(pistGeo, mat('pist', 0xb8bcc0, {m: 0.9, r: 0.2}), pistons.length); P.add(S1.pistons);
   S1.rods = new THREE.InstancedMesh(rodGeo, mat('rod', 0x8a8f95, {m: 0.9, r: 0.3}), pistons.length); P.add(S1.rods); S1.pistonList = pistons;
@@ -140,7 +140,7 @@ export function buildSystems(ctx) {
   S1.engineGroups = engines;
 
   // ================================================================ 2 ELECTRICAL (switchboards, transformers, slip ring, cable trays, routed cables, drives)
-  const S2 = sys(2, 'elec', 'Electrical · 11 kV ring, slip ring, 690 V drives, routed cables', {focus: ['swb', 'tx', 'slipring', 'brushes'], k: 0.55, pull: {ids: ['slipring', 'brushes', 'swivel'], k: 2.6}, in: 'slew', t: [-95, 14, 0], az: -38, el: 40, r: 125});
+  const S2 = sys(2, 'elec', 'Electrical · 11 kV ring, slip ring, 690 V drives, routed cables', {focus: ['swb', 'tx', 'slipring', 'brushes'], k: 0.55, pull: {ids: ['slipring', 'brushes', 'swivel'], hide: ['tray'], k: 1.25}, in: 'slew', t: [-95, 14, 0], az: -38, el: 40, r: 125});
   const EG = grp(slew), EH = grp(rig); S2.groups.push(EG, EH);
   const mSwb = mat('swb', 0xc7ccd1, {m: 0.3, r: 0.5}), mSwbD = mat('swbD', 0x8e959c, {m: 0.3}), mTx = mat('tx', 0x4c6b55, {m: 0.3, r: 0.6}), mCab = mat('cab', 0x1d1f22, {m: 0.1, r: 0.6, e: 0x22ff66, ei: 0}), mTray = mat('tray', 0x9a9ea3, {m: 0.6}), mCu = mat('cu', 0xb87333, {m: 1, r: 0.25}), mDrive = mat('drv', 0x3d4f73, {m: 0.3});
   const cubGeo = mergeAll([new THREE.BoxGeometry(1, 2.4, 1.8).translate(0, 1.2, 0), new THREE.BoxGeometry(0.8, 0.9, 0.04).translate(0, 1.7, 0.92), new THREE.BoxGeometry(0.1, 0.1, 0.05).translate(0.3, 1.2, 0.93)]);
@@ -154,9 +154,10 @@ export function buildSystems(ctx) {
   const busTie = box(18, 0.6, 0.6, mCu, EG, -116, 22.2, 16); part(S2, 'bustie', 'Bus-tie (ring bus between rooms)', 'I', 'Open bus-tie splits the plant into halves', null, busTie, [0, 2, 0]);
   const txs = [];
   for (let i = 0; i < 6; i++) { const t = grp(EG, -78 + (i % 3) * 6, 9, (i < 3 ? 10 : -10)); box(3.4, 3.2, 2.2, mTx, t, 0, 1.6, 0); for (let f = 0; f < 10; f++) box(0.08, 2.6, 2.8, mTx, t, -1.5 + f * 0.33, 1.6, 0); cylY(0.18, 0.8, mWhite, t, -0.8, 3.6, 0, 8); cylY(0.18, 0.8, mWhite, t, 0, 3.6, 0, 8); cylY(0.18, 0.8, mWhite, t, 0.8, 3.6, 0, 8); txs.push(t); }
+  S2.txs = txs; S2.swbs = swbs;
   part(S2, 'tx', 'Transformers 11 kV / 690 V, 6 (fin-cooled)', 'S', 'GE supplied transformers; rating split invented', 'sleipnirGE', txs[0], [0, 4, 0], true);
   // slip ring collector at the slew axis (rotating brushes on slew, rings on hull)
-  const slipR = grp(rig, I.upX, I.ringY, 0), slipS = grp(slew, 0, 0, 0); S2.groups.push(slipR, slipS);
+  const slipR = grp(rig, I.upX, I.ringY, 0), slipS = grp(slew, 0, 0, 0); S2.groups.push(slipR, slipS); S2.slipR = slipR; S2.slipS = slipS;
   const rings = []; for (let i = 0; i < 12; i++) rings.push(cylY(2.0, 0.28, mCu, slipR, 0, 0.6 + i * 0.6, 0, 48));
   cylY(1.6, 8.2, mat('ins', 0x3a3328, {m: 0.1}), slipR, 0, 4, 0, 24);
   const brushes = inst(new THREE.BoxGeometry(0.5, 0.18, 0.3), mat('brush', 0x222222, {m: 0.2}), Array.from({length: 48}, (_, i) => m4(2.25 * Math.cos(i * 0.5236), 0.6 + Math.floor(i / 4) * 0.6, 2.25 * Math.sin(i * 0.5236))), slipS);
@@ -168,7 +169,7 @@ export function buildSystems(ctx) {
   const cables = [];
   ROOMS.forEach((R) => { for (let k = 0; k < 3; k++) cables.push(tube([[R.x + 6, 11.5, R.z + (k - 1) * 7.5], [R.x + 6, 20, R.z + (k - 1) * 4], [R.x, 22, R.z + 6 * Math.sign(R.z)]], 0.14, mCab, EG, 20)); });
   for (const z of [3, -3]) cables.push(tube([[-120, 24, 6 * Math.sign(z)], [-60, 24, z], [-10, 24, z * 0.6], [0, 14, 0.6 * z], [0, 7.2, 0.4 * z]], 0.22, mCab, EG, 60));
-  box(120, 0.12, 1.2, mTray, EG, -60, 23.6, 0);
+  box(120, 0.12, 1.2, mTray, EG, -60, 23.6, 0).name = 'tray';
   const DRV = [[MAIN.xa + 6, 1], [MAIN.xa + 6, -1], [I.podX0 + 20, 1], [I.podX0 + 20, -1]];
   const drives = [];
   DRV.forEach(([x, s], i) => {
@@ -180,7 +181,7 @@ export function buildSystems(ctx) {
     for (const bz of (i < 2 ? [I.laneZ + I.beltW / 2, I.laneZ - I.beltW / 2] : [I.podZ])) cables.push(tube([[x, I.unitH + 0.5, s * 30], [x, I.unitH - 2, s * bz], [i < 2 ? MAIN.xa + 3 : I.podX0 + I.podLen / 2, (i < 2 ? MAIN.yb + MAIN.Ly / 2 : POD.yb + POD.Ly / 2) + 5, s * bz]], 0.16, mCab, EH, 30));
     ext(EH, x - 7, I.unitH + 0.5, s * 31.5, 'drive room');
   });
-  box(200, 0.12, 1.4, mTray, EH, 110, I.unitH + 8.6, 0);
+  box(200, 0.12, 1.4, mTray, EH, 110, I.unitH + 8.6, 0).name = 'tray'; S2.drv = drives; S2.EG = EG;
   part(S2, 'drives', 'MV7000 drive line-ups, 4 rooms × 10 cabinets', 'S', 'GE MV7000 drives on Sleipnir; placement in the hull is invented', 'sleipnirGE', drives[0], [0, 4, 0], true);
   part(S2, 'cables', `Routed power cables (${cables.length} runs, glow = load)`, 'D', `Motor feeders: ${D.ELEC.cablesPerMotor} × 3×240 mm² per 1.5 MW motor (398 A each at 45 °C); MV runs share the colour code`, 'cable240', cables[cables.length - 1], [0, 0, 0], true);
   part(S2, 'trays', 'Cable ladder trays (deck + hull spine)', 'I', null, null, EH.children.at(-1), [0, 2, 0]);
@@ -249,7 +250,7 @@ export function buildSystems(ctx) {
   part(S3, 'podtrain', 'Pod drives, 4 × 1.5 MW per pod', 'I', null, null, S3.podTrains[0].bm, [0, 0, 3]);
 
   // ================================================================ 4 RUNNING GEAR & SUSPENSION
-  const S4 = sys(4, 'susp', 'Running gear & hydropneumatic suspension · 20 stations', {focus: ['cyl', 'acc', 'manifold', 'bearing'], k: 1.9, pull: {ids: ['cyl', 'rod', 'acc', 'manifold', 'hose', 'bearing', 'axle'], k: 1.25}, in: 'rig', t: [ROAD[4], 12, I.laneZ], az: -60, el: 22, r: 78});
+  const S4 = sys(4, 'susp', 'Running gear & hydropneumatic suspension · 20 stations', {focus: ['cyl', 'acc', 'manifold', 'bearing'], k: 1.9, pull: {ids: ['cyl', 'manifold', 'hose', 'bearing', 'axle'], k: 1.15}, in: 'rig', t: [ROAD[4], 12, I.laneZ], az: -60, el: 22, r: 78});
   const SG = grp(rig); S4.groups.push(SG);
   const mCylB = mat('cylB', 0x5c6670, {m: 0.7, r: 0.35}), mRod = mat('rodC', 0xdfe3e6, {m: 1, r: 0.12}), mAcc = mat('acc', 0xd8d4c8, {m: 0.4, r: 0.4, e: 0xff3b1f, ei: 0}), mHose = mat('hose', 0x111111, {m: 0.1, r: 0.8});
   S4.stations = [];
@@ -275,6 +276,7 @@ export function buildSystems(ctx) {
       part(S4, 'hose', 'High-pressure hoses', 'I', null, null, SG.children.at(-2), [0, 2, 0]);
     }
   }));
+  S4.SG = SG;
   // road wheel bearing cutaway (one wheel shown sectioned): tapered rollers
   {
     const x = ROAD[3], z = I.laneZ + I.beltW / 2 + 1.0, y = 1.04 + I.rRoad;
@@ -283,6 +285,7 @@ export function buildSystems(ctx) {
     part(S4, 'bearing', 'Road-wheel tapered roller bearing (26 rollers)', 'I', null, null, brg, [0, 0, 4]);
     part(S4, 'axle', 'Road-wheel axle', 'I', null, null, axle, [0, 0, 0]);
   }
+  S4.nOld = SG.children.length;   // station + bearing/axle meshes end here (the GLB station replaces them)
   // return rollers, tensioner, shoe section, pin
   const rr = []; for (const zs of [I.laneZ, -I.laneZ]) for (let i = 0; i < 4; i++) rr.push(cylZ(1.2, I.unitW - 2, mCylB, SG, MAIN.xa + 25 + i * 28, MAIN.yt + rS - 1.9, zs, 20));
   part(S4, 'return', 'Return rollers, 4 per unit', 'I', null, null, rr[0], [0, 3, 0]);
@@ -337,7 +340,7 @@ export function buildSystems(ctx) {
   ext(LS, R0 - 6, 0.2, 0, 'slew deck');
 
   // ================================================================ 6 GUN & ELEVATION (hydraulics sourced; gun internals visual only)
-  const S6 = sys(6, 'gun', 'Gun & elevation · trunnions, 2 rams, 12-pump HPU (gun internals visual only)', {focus: ['trunnion', 'ram', 'pumps', 'cradle', 'breech', 'resv'], k: 1.15, in: 'slew', t: [48, 14, 0], az: -55, el: 24, r: 125});
+  const S6 = sys(6, 'gun', 'Gun & elevation · trunnions, 2 rams, 12-pump HPU (gun internals visual only)', {focus: ['trunnion', 'ram', 'pumps', 'cradle', 'breech', 'resv'], k: 1.15, pull: {ids: ['trunnion', 'cradle', 'breech', 'bring', 'recoil', 'tray', 'carrier'], hide: ['bore', 'jacket', 'hoist', 'floor', 'pumps', 'resv', 'accB', 'vblk', 'filt'], k: 1.15}, in: 'slew', t: [48, 14, 0], az: -55, el: 24, r: 125});
   const GG = grp(slew), GB = grp(boom); S6.groups.push(GG, GB);
   const mHyd = mat('hyd', 0x2f6b3a, {m: 0.4}), mPr = mat('pr', 0xb52a20, {m: 0.4, r: 0.4}), mRet = mat('ret', 0x2a4fb5, {m: 0.4, r: 0.4}), mGun = mat('gunM', 0x3a3e44, {m: 0.8, r: 0.35});
   const trn = [12.6, -12.6].map((z) => cylZ(3.2, 2.2, mRing, GB, 0, 0, z, 32));
@@ -388,7 +391,7 @@ export function buildSystems(ctx) {
   ext(H, -12, 0.4, 15, 'HPU room'); ext(H, 12, 0.4, -15, 'HPU room');
 
   // ================================================================ 7 HULL, BUOYANCY, MARINE & FIRE SAFETY
-  const S7 = sys(7, 'hull', 'Hull, buoyancy & fire safety · pontoons, ballast, 5 thrusters, fire main, extinguishers', {k: 0.85, in: 'rig', t: [115, 16, 0], az: -42, el: 30, r: 330});
+  const S7 = sys(7, 'hull', 'Hull, buoyancy & fire safety · pontoons, ballast, 5 thrusters, fire main, extinguishers', {k: 0.85, pull: {ids: ['thr', 'nozzle'], k: 1.05}, in: 'rig', t: [115, 16, 0], az: -42, el: 30, r: 330});
   const HG = grp(rig), HS = grp(slew); S7.groups.push(HG, HS);
   const mBh = mat('bh', 0x9fb0bd, {m: 0.3, t: true, op: 0.55, side: THREE.DoubleSide}), mWater = mat('ballast', 0x2f6f9f, {m: 0.1, r: 0.2, t: true, op: 0.7}), mFire = mat('fire', 0xc81e1e, {m: 0.4, r: 0.4}), mOr = mat('orange', 0xf26b1d, {m: 0.2, r: 0.5}), mThr = mat('thr', 0xb7c0c7, {m: 0.8, r: 0.3});
   const bhs = [];
@@ -421,6 +424,7 @@ export function buildSystems(ctx) {
   const fpumps = [0, 1, 2].map((i) => { const g0 = grp(HG, 214, I.unitH + 1, -8 + i * 8); cylX(0.6, 1.8, mMot, g0, 0, 1, 0); cylY(0.7, 1.2, mFire, g0, 1.4, 1, 0); return g0; });
   const delu = [16, -16].map((z) => add(new THREE.Mesh(new THREE.TorusGeometry(7.4, 0.12, 6, 48), mFire), HS, -138, 61, z, Math.PI / 2, 0, 0));
   const boats = [1, -1].flatMap((s) => [-60, 0].map((x) => { const b = grp(HS, x, 30, s * 35); add(new THREE.Mesh(new THREE.CapsuleGeometry(1.6, 7, 6, 16).rotateZ(Math.PI / 2), mOr), b, 0, 0, 0); box(0.4, 4, 0.4, mBase, b, -3, 2, -s * 1.5); box(0.4, 4, 0.4, mBase, b, 3, 2, -s * 1.5); return b; }));
+  S7.bpumps = bpumps; S7.fpumps = fpumps; S7.boats = boats; S7.hyd = hyd;
   part(S7, 'firemain', 'Fire main ring (hull deck)', 'I', null, null, main, [0, 2, 0], true);
   part(S7, 'hydrants', 'Hydrants, 16 (every 30 m)', 'I', null, null, hyd, [0, 1, 0]);
   part(S7, 'fpumps', 'Fire pumps, 3', 'I', null, null, fpumps[0], [0, 2, 0]);
