@@ -56,3 +56,9 @@ Built: `machines/colossal/kin.js` (pure state(t)), `main.js` (pass-1 page), `scr
 **Correction found while porting (kin.js supersedes spec/sizing.py):** sizing.py sized track-unit frames and pontoons on 2C (twice the sprocket–idler distance) instead of C + 2r. Fixed numbers: mass 124.9 kt (shoes 41.9, running gear 22.2, hull 15.8, upper 28.3, boom 5.3, +10%); ground pressure 1.34 bar (0.78× Bagger 288); float draft 18.8 m; land power 55.9 MW (58% of plant); thrusters 26.1 MW → 5 × 5.5 MW.
 
 Known issues for pass 2: TOP view shows only the slewed upper deck (hull/tracks not reading); road wheels are plain drums; no callouts, explode or greebles yet; FIELD figure too small to see at 1,900 m.
+
+## Pass 2a — fidelity (2026-11-19, after Joe's D- on pass 1)
+- Big round track ends: 29T main sprocket (r 12.0 m, 138 links), 21T pods (r 8.7 m, 51 links); pods moved outboard (z ±63) alongside the track fronts. H1–H3 PASS (1.50 bar). Sprocket torque 290 MN·m, motor 67 rpm at 168:1 — flagged.
+- Seeded greebles (`greeble.js`): recursive panel subdivision, vents, sparse lit windows, pipes, ladders, catwalks, railings — instanced. Upper deck is an extruded side profile with a light chamfer glacis, helideck, masts; segmented boom mantle; chunky 3-block shoes; hub covers on track plates.
+- FIELD mode: telephoto (9°) at 22 m camera height (reference composition, not eye level), overcast haze, salt pan, grass foreground, 1.8 m figure at the boundary, contact shadow, env-map metal on shoes.
+- Side-by-side: `stills/pass2-field-vs-ref.jpg`. Remaining gap: greebles read as flat boxes (no fine horizontal lattice / railing density), salt pan lacks the plate pattern, no bright shoe faces at the track ends, deck proportions taller than the reference.

@@ -14,9 +14,9 @@ export const S = { // sourced analogs
   S690: 690e6, rho_st: 7850, rho_sw: 1025, g: 9.81,
 };
 export const I = { // invented geometry (scale anchor = 230 m hull), see spec D1–D10
-  hullL: 230, beam: 100, hullH: 10, unitH: 30, podH: 24, unitW: 28, podW: 24,
-  beltW: 13, podBeltW: 11, laneZ: 36, mainX0: 5, mainLen: 160.6, podX0: 178, podLen: 46.2,
-  teeth: 12, v: 0.5, nRoad: 10, rRoad: 3.6, stroke: 1.8,
+  hullL: 230, beam: 100, hullH: 10, unitH: 30, podH: 28, unitW: 28, podW: 24,
+  beltW: 13, podBeltW: 11, laneZ: 36, podZ: 63, mainX0: 5, mainLen: 160.6, podX0: 150, podLen: 46.2,
+  teeth: 29, podTeeth: 21, v: 0.5, nRoad: 10, rRoad: 3.6, stroke: 1.8,
   upL: 170, upW: 64, upH: 38, upX: 115, ringD: 48, ringY: 40, boomL: 150, boomD: 12, trunX: 200, trunY: 70,
   shoe: {hFrac: 0.40, tMin: 0.05, nWeb: 4, tWeb: 0.04, extra: 0.30, SF: 3, pDesign: 1.71e5},
   sealed: 0.6, outfit: 1.10, runningGearK: 2.0,
@@ -25,13 +25,14 @@ export const I = { // invented geometry (scale anchor = 230 m hull), see spec D1
 // ---------------------------------------------------------------- derived: track geometry
 const sc = I.beltW / S.CT_shoe_len;
 export const pitch = S.CT_shoe_pitch * sc;                                   // D 2.60 m
-export const rS = pitch / (2 * Math.sin(Math.PI / I.teeth));                 // D sprocket pitch radius 5.02 m
+export const rS = pitch / (2 * Math.sin(Math.PI / I.teeth));                 // D main sprocket/idler pitch radius (29T: 12.0 m)
+export const rP = pitch / (2 * Math.sin(Math.PI / I.podTeeth));              // D pod sprocket/idler (21T: 8.7 m)
 const tPin = I.shoe.hFrac * pitch;                                           // D shoe depth 1.04 m
 const yPitch = tPin / 2;                                                     // belt pitch line above ground (flat)
 
 /** rounded-rectangle belt: 4 equal corner wheels; returns centres, loop length, links (tensioner sets Lx) */
-function belt(x0, len, H) {
-  const r = rS, Ly = H - 2 * r - tPin;                                      // vertical centre spacing (top pitch line at H - yPitch)
+function belt(x0, len, H, r) {
+  const Ly = H - 2 * r - tPin;                                      // vertical centre spacing (top pitch line at H - yPitch)
   const Lx0 = len - 2 * r;
   const L0 = 2 * Lx0 + 2 * Ly + 2 * Math.PI * r;
   const N = Math.round(L0 / pitch);
@@ -39,8 +40,8 @@ function belt(x0, len, H) {
   const xa = x0 + r, xb = xa + Lx, yb = yPitch + r, yt = yb + Ly;
   return {N, L: N * pitch, L0, Lx, Lx0, Ly, r, xa, xb, yb, yt, take: Lx - Lx0};
 }
-export const MAIN = belt(I.mainX0, I.mainLen, I.unitH);
-export const POD = belt(I.podX0, I.podLen, I.podH);
+export const MAIN = belt(I.mainX0, I.mainLen, I.unitH, rS);
+export const POD = belt(I.podX0, I.podLen, I.podH, rP);
 
 /** point on the belt at arc length s (CCW seen from port: bottom run goes aft as the vehicle drives forward) */
 export function beltAt(B, s) {
@@ -71,7 +72,7 @@ export const SHOE = hollowShoe(I.beltW), PODSHOE = hollowShoe(I.podBeltW);
 const env = (L, W, H) => L * W * H;
 export const MASS = (() => {
   const shoes = 4 * MAIN.N * SHOE.m + 4 * POD.N * PODSHOE.m;
-  const frames = S.PRE_rho * I.runningGearK * 0.5 * (2 * env(MAIN.Lx + 2 * rS, I.unitW, I.unitH) + 2 * env(POD.Lx + 2 * rS, I.podW, I.podH));
+  const frames = S.PRE_rho * I.runningGearK * 0.5 * (2 * env(MAIN.Lx + 2 * rS, I.unitW, I.unitH) + 2 * env(POD.Lx + 2 * rP, I.podW, I.podH));
   const hull = S.PRE_rho * env(I.hullL, I.beam, I.hullH);
   const upper = S.PRE_rho * env(I.upL, I.upW, I.upH);
   const boom = S.rho_st * Math.PI * I.boomD * (I.boomD / 100) * I.boomL;
@@ -80,7 +81,7 @@ export const MASS = (() => {
 })();
 export const W = MASS.total * S.g;
 export const A_CONTACT = 4 * I.beltW * MAIN.Lx + 4 * I.podBeltW * POD.Lx * 0.8;   // I: pods bear on 80% of run
-export const V_BUOY = I.sealed * (2 * env(MAIN.Lx + 2 * rS, I.unitW, I.unitH) + 2 * env(POD.Lx + 2 * rS, I.podW, I.podH));
+export const V_BUOY = I.sealed * (2 * env(MAIN.Lx + 2 * rS, I.unitW, I.unitH) + 2 * env(POD.Lx + 2 * rP, I.podW, I.podH));
 export const DRAFT = I.unitH * (MASS.total / S.rho_sw) / V_BUOY;
 const MU = S.CT_P_trac / (S.CT_v * S.CT_W_max);
 // road wheels: evenly spaced under the main bottom run, both sides
@@ -118,7 +119,7 @@ export function state(t, o = {}) {
   const sweepT = t * 0.02;
   const slew = o.slew ?? 0.35 * Math.sin(sweepT), elev = o.elev ?? (0.08 + 0.07 * Math.sin(sweepT * 0.7));
   // pods: bogie pitch from local ground slope under each pod
-  const podPitch = [I.laneZ, -I.laneZ].map((z) => {
+  const podPitch = [I.podZ, -I.podZ].map((z) => {
     const xa = I.podX0 + 6, xb = I.podX0 + I.podLen - 6;
     return Math.atan2(terrain(d + xb, z, ton) - terrain(d + xa, z, ton), xb - xa) - Math.atan(bx);
   });
@@ -127,7 +128,7 @@ export function state(t, o = {}) {
     hull: {heave, pitch: Math.atan(bx), roll: Math.atan(bz)},
     strut, maxStrut: Math.max(...strut.map(Math.abs)), podPitch,
     belt: d,                                  // arc length travelled by every link (no slip)
-    sprocketAngle: d / rS, roadAngle: d / I.rRoad, sprocketRpm: omega * 60 / (2 * Math.PI),
+    sprocketAngle: d / rS, podAngle: d / rP, roadAngle: d / I.rRoad, sprocketRpm: omega * 60 / (2 * Math.PI),
     motorRpm: omega * 60 / (2 * Math.PI) * S.CT_ratio,
     trackSpeed: rS * omega, linkHz: v / pitch,
     pBar: p / 1e5, pRatio: p / S.B288_p, tractiveMN: F / 1e6, powerMW: P / 1e6, plantPct: P / S.SLP_plant,
