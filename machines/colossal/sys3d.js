@@ -51,7 +51,7 @@ export function buildSystems(ctx) {
   const ext = (parent, x, y, z, where) => EXTS.push({parent, x, y, z, where});
 
   // ================================================================ 1 POWER PLANT (upper deck, rear block)
-  const S1 = sys(1, 'power', 'Power plant · 12 × 8 MW dual-fuel gensets', {focus: ['block', 'alt', 'turbo', 'cac', 'exh'], k: 3.2, in: 'slew', t: [-118, 11, 0], az: -40, el: 46, r: 125});
+  const S1 = sys(1, 'power', 'Power plant · 12 × 8 MW dual-fuel gensets', {focus: ['block', 'alt', 'turbo', 'cac', 'exh'], k: 3.2, pull: {ids: ['block', 'alt', 'turbo', 'cac', 'exh', 'heads', 'rocker', 'fpump', 'doors', 'mounts', 'pistons', 'gvu'], count: {heads: 8, rocker: 8, fpump: 8, doors: 16, mounts: 8, pistons: 8}, k: 1.9}, in: 'slew', t: [-118, 11, 0], az: -32, el: 30, r: 125});
   const P = grp(slew); S1.groups.push(P);
   const E = D.POWER, mBlock = mat('eng', 0x46505a, {m: 0.6, r: 0.45}), mHead = mat('head', 0x7f8a94, {m: 0.7, r: 0.35, e: 0xff5a1f, ei: 0}), mAlt = mat('alt', 0x2f5d8a, {m: 0.5, r: 0.4}), mBase = mat('base', 0x2b2d30, {m: 0.6}), mPipe = mat('exh', 0x9b8f7e, {m: 0.8, r: 0.3}), mTank = mat('tank', 0xc9b25a, {m: 0.3, r: 0.6}), mWhite = mat('white', 0xe9e8e3, {m: 0.2, r: 0.5}), mCO2 = mat('co2', 0xb22222, {m: 0.4, r: 0.4});
   const ROOMS = [];
@@ -140,7 +140,7 @@ export function buildSystems(ctx) {
   S1.engineGroups = engines;
 
   // ================================================================ 2 ELECTRICAL (switchboards, transformers, slip ring, cable trays, routed cables, drives)
-  const S2 = sys(2, 'elec', 'Electrical · 11 kV ring, slip ring, 690 V drives, routed cables', {focus: ['swb', 'tx', 'slipring', 'brushes'], k: 0.55, in: 'slew', t: [-95, 14, 0], az: -38, el: 40, r: 125});
+  const S2 = sys(2, 'elec', 'Electrical · 11 kV ring, slip ring, 690 V drives, routed cables', {focus: ['swb', 'tx', 'slipring', 'brushes'], k: 0.55, pull: {ids: ['slipring', 'brushes', 'swivel'], k: 2.6}, in: 'slew', t: [-95, 14, 0], az: -38, el: 40, r: 125});
   const EG = grp(slew), EH = grp(rig); S2.groups.push(EG, EH);
   const mSwb = mat('swb', 0xc7ccd1, {m: 0.3, r: 0.5}), mSwbD = mat('swbD', 0x8e959c, {m: 0.3}), mTx = mat('tx', 0x4c6b55, {m: 0.3, r: 0.6}), mCab = mat('cab', 0x1d1f22, {m: 0.1, r: 0.6, e: 0x22ff66, ei: 0}), mTray = mat('tray', 0x9a9ea3, {m: 0.6}), mCu = mat('cu', 0xb87333, {m: 1, r: 0.25}), mDrive = mat('drv', 0x3d4f73, {m: 0.3});
   const cubGeo = mergeAll([new THREE.BoxGeometry(1, 2.4, 1.8).translate(0, 1.2, 0), new THREE.BoxGeometry(0.8, 0.9, 0.04).translate(0, 1.7, 0.92), new THREE.BoxGeometry(0.1, 0.1, 0.05).translate(0.3, 1.2, 0.93)]);
@@ -249,7 +249,7 @@ export function buildSystems(ctx) {
   part(S3, 'podtrain', 'Pod drives, 4 × 1.5 MW per pod', 'I', null, null, S3.podTrains[0].bm, [0, 0, 3]);
 
   // ================================================================ 4 RUNNING GEAR & SUSPENSION
-  const S4 = sys(4, 'susp', 'Running gear & hydropneumatic suspension · 20 stations', {focus: ['cyl', 'acc', 'manifold', 'bearing'], k: 1.9, in: 'rig', t: [ROAD[4], 12, I.laneZ], az: -60, el: 22, r: 78});
+  const S4 = sys(4, 'susp', 'Running gear & hydropneumatic suspension · 20 stations', {focus: ['cyl', 'acc', 'manifold', 'bearing'], k: 1.9, pull: {ids: ['cyl', 'rod', 'acc', 'manifold', 'hose', 'bearing', 'axle'], k: 1.25}, in: 'rig', t: [ROAD[4], 12, I.laneZ], az: -60, el: 22, r: 78});
   const SG = grp(rig); S4.groups.push(SG);
   const mCylB = mat('cylB', 0x5c6670, {m: 0.7, r: 0.35}), mRod = mat('rodC', 0xdfe3e6, {m: 1, r: 0.12}), mAcc = mat('acc', 0xd8d4c8, {m: 0.4, r: 0.4, e: 0xff3b1f, ei: 0}), mHose = mat('hose', 0x111111, {m: 0.1, r: 0.8});
   S4.stations = [];

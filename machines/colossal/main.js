@@ -283,7 +283,7 @@ function camStep(dt) {
 }
 
 // ---------------------------------------------------------------- modes
-const ui = {t: 0, rate: 10, view: 'HERO', mode: 'STUDIO', xray: false, terrain: true, depth: 0, paused: false, sys: 0, explode: 0, ghost: false, strobe: true, trip: {}};
+const ui = {t: 0, rate: 10, view: 'HERO', mode: 'STUDIO', xray: false, terrain: true, depth: 0, paused: false, sys: 0, explode: 0, ghost: false, pull: false, strobe: true, trip: {}};
 function applyMode() {
   const f = ui.mode === 'FIELD';
   document.body.classList.toggle('field', f);
@@ -312,12 +312,13 @@ function act(k) {
   else if (k === 'p') ui.paused = !ui.paused;
   else if (k.startsWith('s:')) selectSys(+k.slice(2));
   else if (k === 'ghost') { ui.ghost = !ui.ghost; applyShell(); }
+  else if (k === 'pull') { ui.pull = !ui.pull; applyShell(); selectSys(-1); }
   else if (k === 'strobe') ui.strobe = !ui.strobe;
   else if (k.startsWith('f:')) { const f = k.slice(2); ui.trip[f] = !ui.trip[f]; }
   sync();
 }
 function sync() {
-  document.querySelectorAll('.btn').forEach((b) => { const k = b.dataset.k; b.classList.toggle('on', k === `v:${ui.view}` || k === `m:${ui.mode}` || (k === 'x' && ui.xray) || (k === 'g' && ui.terrain) || k === `r:${ui.rate}` || (k === 'p' && ui.paused) || k === `s:${ui.sys}` || (k === 'ghost' && ui.ghost) || (k === 'strobe' && ui.strobe) || (k.startsWith('f:') && ui.trip[k.slice(2)])); });
+  document.querySelectorAll('.btn').forEach((b) => { const k = b.dataset.k; b.classList.toggle('on', k === `v:${ui.view}` || k === `m:${ui.mode}` || (k === 'x' && ui.xray) || (k === 'g' && ui.terrain) || k === `r:${ui.rate}` || (k === 'p' && ui.paused) || k === `s:${ui.sys}` || (k === 'ghost' && ui.ghost) || (k === 'pull' && ui.pull) || (k === 'strobe' && ui.strobe) || (k.startsWith('f:') && ui.trip[k.slice(2)])); });
 }
 addEventListener('keydown', (e) => { if (e.key === 'h' || e.key === 'H') $('hud').style.display = $('hud').style.display === 'none' ? '' : 'none'; });
 $('depth').oninput = (e) => { ui.depth = +e.target.value; };
@@ -398,22 +399,44 @@ function applyShell() {
   }
   for (const g of GREEB) g.visible = !(ui.sys && ui.ghost);
   for (const s of SYS) for (const g of s.groups) g.visible = !ui.sys || s.n === ui.sys;
+  const S = SYS[ui.sys - 1], P = ui.sys && ui.pull && S?.frame.pull;
+  const ENV = [ground, water, salt, grass, fig, contact];
+  if (P && !ui._env) ui._env = ENV.map((o) => o.visible);
+  if (P) for (const o of ENV) o.visible = false; else if (ui._env) { ENV.forEach((o, i) => o.visible = ui._env[i]); ui._env = null; }
+  for (const m of SHELL) { m.visible = !P; m.needsUpdate = true; }
+  for (const s of SYS) for (const g of s.groups) g.traverse((o) => { if (o.isInstancedMesh) { o.userData.n0 ??= o.count; o.count = o.userData.n0; } });
+  if (P) {
+    const keep = new Set(S.parts.filter((p) => P.ids.includes(p.id)).map((p) => p.obj).filter(Boolean));
+    scene.updateMatrixWorld(true);
+    const box = new THREE.Box3(); for (const k of keep) if (!k.isInstancedMesh || P.count?.[S.parts.find((p) => p.obj === k).id] == null) box.expandByObject(k);
+    box.expandByScalar(Math.max(1.5, box.getSize(new THREE.Vector3()).length() * 0.06));
+    const inKeep = (o) => { for (let a = o; a; a = a.parent) if (keep.has(a)) return true; return false; };
+    const tmp = new THREE.Box3(), cc = new THREE.Vector3();
+    for (const g of S.groups) g.traverse((o) => {
+      if (!o.isMesh) { o.visible = true; return; }
+      if (inKeep(o)) { o.visible = true; return; }
+      if (o.isInstancedMesh) { o.visible = false; return; }
+      tmp.setFromObject(o); o.visible = box.containsPoint(tmp.getCenter(cc));
+    });
+    for (const p of S.parts) if (P.count?.[p.id] != null && p.obj?.isInstancedMesh) p.obj.count = P.count[p.id];
+  } else if (ui.sys) for (const g of S.groups) g.traverse((o) => { o.visible = true; });
   SYSMATS.eng.transparent = ui.sys === 1; SYSMATS.eng.opacity = ui.sys === 1 ? 0.3 : 1; SYSMATS.eng.needsUpdate = true;
 }
 const wp = (s) => { const f = s.frame; const p = new THREE.Vector3(...f.t); (f.in === 'slew' ? slew : rig).localToWorld(p); return p; };
 function selectSys(n) {
-  ui.sys = ui.sys === n ? 0 : n; ui.explode = 0; $('explode').value = 0; ui.ghost = true;
+  if (n !== -1) { ui.sys = ui.sys === n ? 0 : n; ui.explode = 0; $('explode').value = 0; ui.ghost = true; ui.pull = !!SYS[ui.sys - 1]?.frame.pull; } else n = ui.sys;
   const s = SYS[ui.sys - 1];
   $('sysCard').style.display = s ? '' : 'none';
   document.querySelectorAll('.card').forEach((c) => { if (/SUSPENSION|HAND CHECKS/.test(c.innerText) && c.id !== 'sysCard') c.style.display = s ? 'none' : ''; });
   if (s) {
     rig.updateMatrixWorld(true); applyShell();
-    const bb = new THREE.Box3(); const fo = s.frame.focus ? s.parts.filter((p) => s.frame.focus.includes(p.id)).map((p) => p.obj).filter(Boolean) : s.groups; for (const g of fo) bb.expandByObject(g);
+    const bb = new THREE.Box3(); const fids = ui.pull && s.frame.pull ? s.frame.pull.ids : s.frame.focus; const fo = fids ? s.parts.filter((p) => fids.includes(p.id) && !(ui.pull && s.frame.pull?.count?.[p.id] != null) && !(p.obj?.isInstancedMesh && ui.pull)).map((p) => p.obj).filter(Boolean) : s.groups; for (const g of fo) bb.expandByObject(g);
     const c = s.frame.auto === false || bb.isEmpty() ? wp(s) : bb.getCenter(new THREE.Vector3());
     const sz = bb.getSize(new THREE.Vector3()), dim = Math.max(sz.x, sz.y * 1.6, sz.z);
-    if (s.frame.auto !== false && !bb.isEmpty()) s.frame.r = dim / (2 * Math.tan(16 * Math.PI / 180)) * (s.frame.k ?? 0.95);
+    if (s.frame.auto !== false && !bb.isEmpty()) s.frame.r = dim / (2 * Math.tan(16 * Math.PI / 180)) * (ui.pull && s.frame.pull ? s.frame.pull.k ?? 1.4 : s.frame.k ?? 0.95);
     cutPlane.constant = c.z + (s.frame.in === 'slew' ? 2 : 1);
     resize();
+    const ag = s.frame.in === 'slew' ? slew : rig; ui.anchor = {g: ag, l: ag.worldToLocal(c.clone()), w: c.clone()};
     VIEWS.SYS = {t: c.toArray(), az: s.frame.az, el: s.frame.el, r: s.frame.r}; view('SYS');
     $('sysT').textContent = `${s.n} · ${s.title.toUpperCase()}`; $('sysN').textContent = `${s.parts.length} PARTS`;
     $('sysPN').textContent = `${s.parts.filter((p) => p.tag === 'S').length} S · ${s.parts.filter((p) => p.tag === 'D').length} D · ${s.parts.filter((p) => p.tag === 'I').length} I`;
@@ -421,7 +444,7 @@ function selectSys(n) {
     const chks = D.SYS_CHECKS().filter((c) => c.sys === s.n);
     $('sysChk').innerHTML = chks.map((c) => `<div class="row"><span>${c.id} ${c.label}</span><span class="${D.sysOK(c) ? 'ok' : 'bad'}">${c.got.toFixed(2)} / ${c.want.toFixed(2)} ${c.unit}</span></div><div class="lab">${c.note}</div>`).join('') || '<div class="lab">—</div>';
     const fb = {1: [['f:gen', 'TRIP GENSET']], 2: [['f:gen', 'TRIP GENSET']], 3: [['f:motor', 'TRIP MOTOR'], ['strobe', 'STROBE 1/100']], 4: [], 5: [], 6: [], 7: [['f:flood', 'FLOOD COMPT']]}[s.n];
-    btns('sysBtns', [['ghost', 'GHOST SHELL (OFF = SECTION CUT)'], ...fb]);
+    btns('sysBtns', [...(s.frame.pull ? [['pull', 'PULL-OUT UNIT / IN-SITU']] : []), ['ghost', 'GHOST SHELL (OFF = SECTION CUT)'], ...fb]);
   } else view('HERO');
   applyShell(); sync();
 }
@@ -506,11 +529,16 @@ function sysPanel() {
 }
 let S0 = null;
 const opts = () => (ui.mode === 'FIELD' ? {terrain: false, depth: ui.depth, slew: 0, elev: 0.012} : {terrain: ui.terrain, depth: ui.depth});
-function renderAt(t) { ui.t = t; const S = K.state(t, opts()); pose(S); panels(S); sysPanel(); renderer.render(scene, cam); labels(); }
+function follow() {
+  rig.updateMatrixWorld(true); if (ui.sys && ui.view === 'SYS' && ui.anchor) { const A = ui.anchor; const w = A.g.localToWorld(A.l.clone()); const d = w.clone().sub(A.w); A.w.copy(w);
+    VIEWS.SYS.t = w.toArray(); if (camFrom) camFrom.t = camFrom.t.map((a, i) => a + d.getComponent(i)); ctl.target.add(d); cam.position.add(d); }
+}
+function renderAt(t) { ui.t = t; const S = K.state(t, opts()); pose(S); follow(); panels(S); sysPanel(); renderer.render(scene, cam); labels(); }
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (!ui.paused && !window.__hold) ui.t += dt * ui.rate;
+  follow();
   camStep(dt); ctl.update();
   const S = K.state(ui.t, opts()); pose(S); panels(S); sysPanel();
   renderer.render(scene, cam); labels(); requestAnimationFrame(frame);

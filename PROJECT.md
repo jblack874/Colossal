@@ -69,3 +69,6 @@ Known issues for pass 2: TOP view shows only the slewed upper deck (hull/tracks 
 - Detail added: genset rocker covers, fuel pumps + HP lines, crankcase doors, mounts, sump; sprocket rim (29 T) + spoked carrier + motor cowls/feeders; strut end caps, clevises, bogie arms, accumulator domes + gauges, per-cylinder hoses; breech ring, loading tray, cradle ribs, recoil blocks, trunnion caps.
 - Side-by-side vs Solo-12 (stills/systems/compare1-2.jpg). Scramjet v8 does not render under SwiftShader (stalls at "Loading the test hull"), so its bar is taken from the v8 handoff brief, not stills.
 - Grade vs bar: DRIVE, SLEW near pass; GUN, HULL borderline; POWER, ELEC, SUSP fail on composition (no clear hero, foreground clutter).
+- Joe's calls (11/19): Power, Elec, Susp = pull-out unit by default + in-situ toggle; Scramjet bar = v8 handoff brief only (data/sourcing).
+- Added: pull-out mode (isolates one genset room / slip ring / strut station, hides hull + ground), camera follows the system as the machine moves and slews.
+- Grade vs Solo-12 composition: POWER, DRIVE, SLEW pass; ELEC, SUSP, GUN, HULL not yet (plain or sparse hero, off-centre or busy in-situ background). Not shipped.
