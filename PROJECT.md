@@ -46,3 +46,13 @@ Steps 1–3 done; v0.1 = hollow track shoes (Joe's pick 1a). **Waiting on GO / S
 | H7 | Track pin, double shear at 26.8 MN: Ø0.36 m | Pass |
 
 Full criteria (M1–M15), inventory and template: see the spec doc linked in README.md.
+
+## Pass 1 — motion (2026-11-19, 11:26–11:34)
+Built: `machines/colossal/kin.js` (pure state(t)), `main.js` (pass-1 page), `scripts/sweep.mjs`; page `machines/colossal/dist/colossal.html` (725 KB).
+- Links ride a rounded-rectangle belt path (4 corner wheels, 12T sprocket r 5.02 m), 143 links/main belt, 50/pod belt; bottom run follows 20 hydropneumatic struts over a terrain profile; pods pitch on a bogie; hull heave/pitch/roll from a least-squares plane; slew + boom elevation; water depth slider drives buoyancy, wade-in pressure and float.
+- Sweep: 9 stills (HERO, SIDE, TRACK, TRACK x-ray, POD, TOP, wade 8 m, float 24 m, FIELD); errors none; no NaN.
+- Hand checks at load: H1 143 × 2.599 = 371.64 m PASS (tensioner +0.57 m); H2 0.50 m/s PASS; H3 1.34 bar ≤ 1.71 PASS.
+
+**Correction found while porting (kin.js supersedes spec/sizing.py):** sizing.py sized track-unit frames and pontoons on 2C (twice the sprocket–idler distance) instead of C + 2r. Fixed numbers: mass 124.9 kt (shoes 41.9, running gear 22.2, hull 15.8, upper 28.3, boom 5.3, +10%); ground pressure 1.34 bar (0.78× Bagger 288); float draft 18.8 m; land power 55.9 MW (58% of plant); thrusters 26.1 MW → 5 × 5.5 MW.
+
+Known issues for pass 2: TOP view shows only the slewed upper deck (hull/tracks not reading); road wheels are plain drums; no callouts, explode or greebles yet; FIELD figure too small to see at 1,900 m.
