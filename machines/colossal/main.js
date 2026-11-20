@@ -433,7 +433,7 @@ function tourAt(T) {
   const P = S.steps[st], prev = S.steps[st - 1] || P, k = ease(Math.min(1, (local - a) / Math.min(2.2, P.d)));
   if (si !== tour.seg) { tour.seg = si; tour.step = -1; if (S.n) { if (ui.sys !== S.n) selectSys(S.n); } else if (ui.sys) selectSys(ui.sys); }
   if (st !== tour.step) { tour.step = st; if (S.n) { const pl = P.pull ?? !!SYS[S.n - 1].frame.pull; if (pl !== ui.pull) { ui.pull = pl; applyShell(); selectSys(-1); } }
-    if (P.depth != null || !S.n) { ui.depth = P.depth ?? 0; if ($('depth')) $('depth').value = ui.depth; }
+    ui.depth = P.depth ?? 0; if ($('depth')) $('depth').value = ui.depth;
     $('cap').textContent = P.cap; $('cap').style.display = ''; }
   const base = S.n ? VIEWS.SYS : VIEWS[P.v], b0 = S.n ? VIEWS.SYS : VIEWS[prev.v];
   const lerp = (x, y) => x + (y - x) * k;

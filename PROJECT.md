@@ -78,3 +78,10 @@ Known issues for pass 2: TOP view shows only the slewed upper deck (hull/tracks 
 - blender/s1..s7_*.py → machines/colossal/assets/*.glb (18 assets). glb.js inlines + swaps them in; old procedural meshes move to layer 1 so labels, explode and motion still run off them; rotating GLB nodes (gears, pinions, rods, accumulators, props) copy the live model's transforms every frame.
 - Pull-out views now on 1, 2, 4, 6, 7. Page is 28.6 MB (over the 20 MB artifact file cap; ship needs assets external).
 - Grade vs Solo-12: POWER, SLEW, GUN pass; DRIVE near; ELEC (slip ring alone), SUSP (no track run in frame), HULL (thruster small) not yet.
+
+## Pass 5 — exterior in Blender, pull-out fixes, film
+- blender/s8_exterior.py: hollow cast track shoe (instanced on the live belt path), sprocket/idler and road wheels (ride the animated wheels), hull deck + track frames, slewing upperworks (structured bays, catwalks, bridge house, helideck, masts), mantle + barrel. Greebles retired.
+- Pull-outs: Electrical shows the whole power chain isolated; Suspension frames the nearest track run; Hull thruster tighter.
+- Guided tours: ▶ FULL TOUR / ▶ 1–7 buttons; scripted camera, explode and cut-in states with captions; tourAt(T) deterministic.
+- film/colossal_tour.mp4: 81 s, 1280x720, rendered at 15 fps in software and doubled to 30 (scripts/film.mjs). On a GPU the in-page tour runs at full frame rate.
+- Known: suspension pull-out track run not visible yet; the 15 fps capture shows slight stepping on fast camera moves.
