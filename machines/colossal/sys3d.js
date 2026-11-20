@@ -340,7 +340,7 @@ export function buildSystems(ctx) {
   ext(LS, R0 - 6, 0.2, 0, 'slew deck');
 
   // ================================================================ 6 GUN & ELEVATION (hydraulics sourced; gun internals visual only)
-  const S6 = sys(6, 'gun', 'Gun & elevation · trunnions, 2 rams, 12-pump HPU (gun internals visual only)', {focus: ['trunnion', 'ram', 'pumps', 'cradle', 'breech', 'resv'], k: 1.15, pull: {ids: ['trunnion', 'cradle', 'breech', 'bring', 'recoil', 'tray', 'carrier'], hide: ['bore', 'jacket', 'hoist', 'floor', 'pumps', 'resv', 'accB', 'vblk', 'filt'], k: 1.15}, in: 'slew', t: [48, 14, 0], az: -55, el: 24, r: 125});
+  const S6 = sys(6, 'gun', 'Gun & elevation · trunnions, 2 rams, 12-pump HPU (gun internals visual only)', {focus: ['trunnion', 'ram', 'pumps', 'cradle', 'breech', 'resv'], k: 1.15, pull: {ids: ['trunnion', 'cradle', 'breech', 'bring', 'recoil', 'tray', 'carrier', 'shellmagP', 'chargemagP', 'hoistfoot', 'transferP'], hide: ['bore', 'jacket', 'floor', 'pumps', 'resv', 'accB', 'vblk', 'filt'], k: 1.0}, in: 'slew', t: [48, 14, 0], az: -55, el: 24, r: 125});
   const GG = grp(slew), GB = grp(boom); S6.groups.push(GG, GB);
   const mHyd = mat('hyd', 0x2f6b3a, {m: 0.4}), mPr = mat('pr', 0xb52a20, {m: 0.4, r: 0.4}), mRet = mat('ret', 0x2a4fb5, {m: 0.4, r: 0.4}), mGun = mat('gunM', 0x3a3e44, {m: 0.8, r: 0.35});
   const trn = [12.6, -12.6].map((z) => cylZ(3.2, 2.2, mRing, GB, 0, 0, z, 32));

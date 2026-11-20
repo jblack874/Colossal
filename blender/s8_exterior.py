@@ -191,29 +191,9 @@ if 'upper' in ONLY:
         for s in (1, -1):
             for x0 in (-130, -40):
                 for k in range(22): box(0.6, 0.08, 1.2, x0 + k * 0.6, 22 + k * 0.62, s * (hw + 1.2), C['frame'], 0.0)
-        # roof: deck, helideck, white modules, bridge house, masts, radar, vents, roof rails
-        box(178, 0.12, 62, -61, 50.06, 0, C['deck'], 0.0)
-        cyl(13, 0.6, -120, 50.6, 0, C['trim'], 'Y', 64, 0.1); torus(12.2, 0.12, -120, 50.95, 0, C['white'], 'Y', 64, 4)
-        for dx in (-3, 3): box(1.2, 0.05, 7.2, -120 + dx, 50.95, 0, C['white'], 0.0)
-        box(6.0, 0.05, 1.2, -120, 50.95, 0, C['white'], 0.0)
-        for i in range(24): a = i / 24 * 2 * math.pi; box(0.4, 0.2, 0.4, -120 + 12.8 * math.cos(a), 51.0, 12.8 * math.sin(a), mat('helideck_lamp', 0x30d070, 0.0, 0.4, 0x30d070, 1.2), 0.02)
-        for x, z, w, d, h in ((-60, -18, 26, 16, 8), (-30, 16, 18, 12, 8), (-95, -10, 14, 10, 6), (-75, 18, 12, 8, 5)):
-            box(w, h, d, x, 50 + h / 2, z, C['white'], 0.4)
-            for k in range(int(w / 3)): box(1.6, h * 0.5, 0.15, x - w / 2 + 1.5 + k * 3, 50 + h / 2, z + d / 2 + 0.05, C['trim'], 0.02)   # louvres
-            box(w * 0.4, 1.2, d * 0.4, x, 50 + h + 0.6, z, C['plate'], 0.2)
-        # bridge house: two decks, wraparound windows, bridge wings, radar mast
-        box(26, 12, 30, 12, 56, 0, C['white'], 0.5); box(26.4, 1.8, 30.4, 12, 59.2, 0, C['win'], 0.1)
-        box(30, 0.5, 34, 12, 62.2, 0, C['white'], 0.2)
-        for s in (1, -1): box(8, 0.5, 6, 12 + 6, 59.9, s * 18, C['white'], 0.1); railing_run(C, (14, 60.2, s * 21), (22, 60.2, s * 21), 1.1)
-        for x in range(0, 26, 2): box(0.12, 1.8, 0.1, -1 + x, 59.2, 15.25, C['white'], 0.0); box(0.12, 1.8, 0.1, -1 + x, 59.2, -15.25, C['white'], 0.0)
-        cyl(0.6, 14, 8, 69.4, 0, C['white'], 'Y', 16, 0.05); box(6, 0.4, 0.8, 8, 74, 0, C['white'], 0.05); box(3.6, 0.5, 0.5, 8, 76.5, 0, C['trim'], 0.05, ry=0.6)
-        for y in (65, 70, 73): box(3.2, 0.12, 0.12, 8, y, 0, C['white'], 0.0)
-        sphere(1.2, 16, 64.2, 8, C['white'], 24); sphere(1.2, 16, 64.2, -8, C['white'], 24)           # satcom domes
-        for x, z, h in ((-70, 18, 36), (-52, 22, 28), (-20, -20, 22), (-90, -12, 18), (-35, 4, 12)):
-            cyl(0.35, h, x, 50 + h / 2, z, C['trim'], 'Y', 8); box(2.0, 0.12, 0.12, x, 50 + h * 0.8, z, C['trim'], 0.0); sphere(0.3, x, 50 + h, z, C['accent'], 12)
+        box(178, 0.12, 62, -61, 50.06, 0, C['deck'], 0.0)                                       # roof deck (topside fit in s10_topside.py)
         for s in (1, -1): railing_run(C, (-149, 50.1, s * (hw - 0.4)), (29, 50.1, s * (hw - 0.4)), 1.1)
         railing_run(C, (-149.4, 50.1, hw - 0.4), (-149.4, 50.1, -hw + 0.4), 1.1)
-        for x in range(-140, 20, 20): box(3, 0.8, 3, x, 50.4, 0, C['plate'], 0.15); cyl(0.8, 2.4, x, 51.6, 0, C['plate'], 'Y', 20, 0.08)   # roof vents
         # rear face exhaust grilles + nose details
         for z in (-20, 0, 20): box(0.4, 10, 12, -150.2, 30, z, C['trim'], 0.1)
         for z in range(-28, 30, 7): box(0.6, 18, 0.6, 92.3, 24, z, C['frame'], 0.1)
@@ -231,13 +211,13 @@ if 'boom' in ONLY:
             railing_run(C, (2, 10, s * 11.5), (62, 10, s * 11.5), 1.1)
         box(62, 0.15, 22, 32, 10.08, 0, C['deck'], 0.0)
         for x in (10, 30, 50): box(4, 1.4, 4, x, 10.7, 0, C['white'], 0.2)
-    with part('barrel', (105, 0, 0)):
-        cyl(6.0, 90, 105, 0, 0, C['trim'], 'X', 64)
-        for x in range(66, 146, 9): cyl(6.35, 1.6, x, 0, 0, C['frame'], 'X', 64, 0.3)         # thermal sleeve clamps
-        cyl(7.0, 14, 118, 0, 0, C['trim'], 'X', 64, 0.6)                                       # bore evacuator
-        cyl(6.9, 5, 147.5, 0, 0, C['trim'], 'X', 64, 0.6)                                      # muzzle collar
+    with part('barrel', (150, 0, 0)):                                               # barrel doubled to 180 m (Joe 11/19)
+        cyl(6.0, 180, 150, 0, 0, C['trim'], 'X', 64)
+        for x in range(66, 236, 9): cyl(6.35, 1.6, x, 0, 0, C['frame'], 'X', 64, 0.3)         # thermal sleeve clamps
+        cyl(7.0, 14, 172, 0, 0, C['trim'], 'X', 64, 0.6)                                       # bore evacuator
+        cyl(6.9, 5, 237.5, 0, 0, C['trim'], 'X', 64, 0.6)                                      # muzzle collar
         for k in range(4):
-            box(3.0, 1.6, 14.2, 147.5, -3 + k * 2, 0, C['frame'], 0.2)                          # muzzle brake baffles
-        cyl(2.7, 1.0, 150.3, 0, 0, mat('bore_dark', 0x0c0c0c, 0.2, 0.6), 'X', 48)
+            box(3.0, 1.6, 14.2, 237.5, -3 + k * 2, 0, C['frame'], 0.2)                          # muzzle brake baffles
+        cyl(2.7, 1.0, 240.3, 0, 0, mat('bore_dark', 0x0c0c0c, 0.2, 0.6), 'X', 48)
     finalize(); export(f'{OUT}/boom.glb')
 print('DONE')

@@ -17,7 +17,7 @@ export const I = { // invented geometry (scale anchor = 230 m hull), see spec D1
   hullL: 230, beam: 100, hullH: 10, unitH: 30, podH: 28, unitW: 28, podW: 24,
   beltW: 13, podBeltW: 11, laneZ: 36, podZ: 63, mainX0: 5, mainLen: 160.6, podX0: 150, podLen: 46.2,
   teeth: 29, podTeeth: 21, v: 0.5, nRoad: 10, rRoad: 3.6, stroke: 1.8,
-  upL: 200, upW: 64, upH: 38, upX: 115, ringD: 48, ringY: 40, boomL: 150, boomD: 12, trunX: 200, trunY: 70,
+  upL: 200, upW: 64, upH: 38, upX: 115, ringD: 48, ringY: 40, boomL: 240, boomD: 12, trunX: 200, trunY: 70,
   shoe: {hFrac: 0.40, tMin: 0.05, nWeb: 4, tWeb: 0.04, extra: 0.30, SF: 3, pDesign: 1.71e5},
   sealed: 0.6, outfit: 1.10, runningGearK: 2.0,
   terrain: {a1: 0.75, l1: 90, a2: 0.3, l2: 23, roll: 0.35},          // gentle salt-flat swell + ripples, m

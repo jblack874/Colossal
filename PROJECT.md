@@ -85,3 +85,10 @@ Known issues for pass 2: TOP view shows only the slewed upper deck (hull/tracks 
 - Guided tours: ▶ FULL TOUR / ▶ 1–7 buttons; scripted camera, explode and cut-in states with captions; tourAt(T) deterministic.
 - film/colossal_tour.mp4: 81 s, 1280x720, rendered at 15 fps in software and doubled to 30 (scripts/film.mjs). On a GPU the in-page tour runs at full frame rate.
 - Known: suspension pull-out track run not visible yet; the 15 fps capture shows slight stepping on fast camera moves.
+
+## Pass 6 — "LEGO or not" (Joe 11/19 23:03)
+- Topside fit (s10_topside.py): command island, raked bridge, integrated mast with 4 S-band + 4 X-band AESA faces, rotating long-range radar, ESM/IFF ring, yardarms, satcom radomes, EO/IR turrets, 6 CIWS, 4×64 VLS, canister launchers, point-defence launchers, decoys, directed-energy turret, helideck + hangar, RHIBs, crane, HF whips, floodlights.
+- Barrel doubled to 180 m (kin boomL 150→240; ground pressure 1.57→1.61 bar, still ≤ 1.71). Munitions (s11_magazine.py): 48 projectiles, charge magazines, blast doors, transfer trolleys, hoist foot; animated 14 s load cycle.
+- General arrangement (ga.js): 1,380 numbered compartments over upper block, nose, hull and 4 track-frame galleries; system-occupied spaces detected from the 7 systems' geometry; every other room gets a role, purpose and equipment from a 40-item Blender library (s9_equip.py). Cutaway card: deck / block / side planes, presets, click a room for role, purpose, crew and equipment counts.
+- Surface: world-space plating texture (seams, welds, bolts, grime, streaks) on every material; real shadows; GTAO ambient occlusion; facade services (s12_kitbash.py); stencils; palette moved to Joe's references (near-black gunmetal, white accents, haze).
+- LEGO check: silhouette/palette now match the references at distance; close-up plating still reads as a repeating tile; deck labels crowd; tour video predates this pass.

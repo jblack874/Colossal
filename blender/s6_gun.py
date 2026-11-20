@@ -88,11 +88,11 @@ with part('hoist', (-12, -15, 0)):
     pipe([(-34, -16, 0), (-12, -15, 0), (-2, -10, 0), (4, -6, 0)], 1.0, mat('hoist_grey', 0x5a5f66, 0.5, 0.45))
     for x in (-30, -20, -10): torus(1.05, 0.08, x, -15.9 + (x + 34) * 0.045, 0, C['dark'], 'X', 40, 6)
 with part('jacket', (66, 0, 0)):
-    for x in range(66, 146, 10):
+    for x in range(66, 236, 10):
         cyl(6.4, 1.4, x, 0, 0, gm, 'X', 64, 0.1)
         bolts(24, 6.0, x + 0.72, 0, 0, 'X', 0.1, 0.25)
-with part('bore', (75, 0, 0)):
-    cyl(2.7, 138, 75, 0, 0, mat('bore_dark', 0x0c0c0c, 0.2, 0.6), 'X', 48)
+with part('bore', (120, 0, 0)):
+    cyl(2.7, 228, 120, 0, 0, mat('bore_dark', 0x0c0c0c, 0.2, 0.6), 'X', 48)
 finalize(); export(f'{OUT}/gun.glb')
 if os.environ.get('STILL'): still(f'{OUT}/gun_still.png', (-30, 18, 50), (20, -2, 0), 30)
 print('DONE')

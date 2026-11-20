@@ -34,6 +34,18 @@ import ROADWHEEL from './assets/roadwheel.glb';
 import HULLX from './assets/hull.glb';
 import UPPER from './assets/upper.glb';
 import BOOMX from './assets/boom.glb';
+import EQUIP from './assets/equip.glb';
+import TOPSIDE from './assets/topside.glb';
+import MAGAZINE from './assets/magazine.glb';
+import SHELLG from './assets/shell.glb';
+import FACUP from './assets/facade_up.glb';
+import FACHULL from './assets/facade_hull.glb';
+import {buildGA, GAView, describe, ROLES, CAT} from './ga.js';
+import {finish, decal} from './tex.js';
+import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
+import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
+import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
+import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 
 const {I, MAIN, POD, ROAD, pitch, rS, rP} = K;
 for (const c of K.CHECK) console.log(`hand check ${c.id} ${c.label}: ${c.got.toFixed(3)} vs ${c.want.toFixed(3)} ${c.unit} → ${K.checkOK(c) ? 'PASS' : 'FAIL'} (${c.note})`);
@@ -70,7 +82,7 @@ body.field{--bg:#c9ccce;--card:rgba(240,240,238,.88)}
 document.head.insertAdjacentHTML('beforeend', `<style>${css}</style>`);
 document.body.insertAdjacentHTML('beforeend', `
 <canvas id="c"></canvas>
-<style>.film .card{display:none!important}.film #cap{bottom:48px!important;font-size:17px!important}</style>
+<style>.gal{position:absolute;transform:translate(-50%,-100%);font:600 9px/1.25 inherit;background:rgba(246,244,239,.9);border-left:3px solid #333;padding:2px 5px;white-space:nowrap;color:#1b1c1e}.gal i{font-style:normal;color:#77736a;font-weight:500}.film .card{display:none!important}.film #cap{bottom:48px!important;font-size:17px!important}</style>
 <div id="hud">
  <div id="brand">COLOSSAL</div>
  <div id="title"><div class="k">ORIGINAL AMPHIBIOUS TRACKED COLOSSUS · 230 M HULL</div>
@@ -103,6 +115,13 @@ document.body.insertAdjacentHTML('beforeend', `
   <div class="lab" style="margin:8px 0 4px">EXPLODE</div><input type="range" id="explode" min="0" max="1" step="0.01" value="0">
   <div class="lab" style="margin:6px 0 4px">SECTION · FAULTS</div><div id="sysBtns"></div>
   <div class="lab" style="margin:8px 0 4px">PARTS · <span id="sysPN"></span></div><div id="sysParts" style="font-size:10px;line-height:1.5"></div></div>
+ <div class="card" id="cutCard" style="right:20px;top:100px;width:360px;display:none"><div class="h"><span>CUTAWAY · GENERAL ARRANGEMENT</span><span class="n" id="cutN"></span></div>
+  <div class="lab">DECK CUT (HEIGHT) · <span id="cutYv"></span></div><input type="range" id="cutY" min="0" max="1" step="0.002" value="1">
+  <div class="lab">BLOCK CUT (BOW → STERN) · <span id="cutXv"></span></div><input type="range" id="cutX" min="0" max="1" step="0.002" value="1">
+  <div class="lab">SIDE CUT (PORT → STBD) · <span id="cutZv"></span></div><input type="range" id="cutZ" min="0" max="1" step="0.002" value="1">
+  <div id="cutBtns" style="margin:6px 0"></div><div id="cutRead" style="font-size:10px;line-height:1.5"></div><div class="lab" style="margin:6px 0 4px">LEGEND</div><div id="cutLeg" style="font-size:10px;line-height:1.6"></div></div>
+ <div class="card" id="gaInfo" style="left:360px;top:100px;width:380px;display:none;pointer-events:auto"></div>
+ <div id="gaLabels" style="position:absolute;left:0;top:0;pointer-events:none"></div>
  <div id="cap" style="position:absolute;left:50%;bottom:150px;transform:translateX(-50%);max-width:760px;text-align:center;font:500 15px/1.45 inherit;color:#1b1c1e;background:rgba(246,244,239,.92);border:1px solid #d9d5cc;padding:10px 18px;display:none"></div>
  <div class="card" style="left:20px;bottom:40px"><div class="lab" style="margin-bottom:6px">SYSTEM (CUT INTO)</div><div id="systems"></div><div class="lab" style="margin:4px 0 6px">GUIDED TOUR</div><div id="tours"></div><div class="lab" style="margin:4px 0 6px">VIEW</div><div id="views"></div>
   <div class="lab" style="margin:4px 0 6px">MODE · DISPLAY · TIME</div><div id="modes"></div></div>
@@ -121,8 +140,16 @@ const cam = new THREE.PerspectiveCamera(32, 16 / 9, 1, 30000);
 const ctl = new OrbitControls(cam, renderer.domElement);
 ctl.enableDamping = true;
 const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8578, 1.6);
-const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-400, 700, 500);
-scene.add(hemi, key);
+const key = new THREE.DirectionalLight(0xfff4e6, 2.6); key.position.set(-400, 700, 500);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+key.castShadow = true; key.shadow.mapSize.set(4096, 4096); Object.assign(key.shadow.camera, {left: -260, right: 260, top: 260, bottom: -260, near: 10, far: 2400});
+key.shadow.bias = -0.0004; key.shadow.normalBias = 0.6; key.target.position.set(115, 30, 0);
+scene.add(hemi, key, key.target);
+// ambient occlusion (GTAO) + output: contact shading in every crevice, panel joint and room corner
+const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, cam));
+const gtao = new GTAOPass(scene, cam, 1600, 900); gtao.updateGtaoMaterial({radius: 6, distanceExponent: 1.4, thickness: 4, scale: 1.4, samples: 16}); gtao.updatePdMaterial({lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16}); gtao.blendIntensity = 0.85;
+composer.addPass(gtao); composer.addPass(new OutputPass());
+function draw() { if (window.__noAO) renderer.render(scene, cam); else composer.render(); }
 const pmrem = new THREE.PMREMGenerator(renderer); scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 const M = {
@@ -373,6 +400,32 @@ const GLB = {ready: false};
   for (const x of extMats) if (!SHELL.includes(x)) SHELL.push(x);
   GLB.extByName = {}; for (const x of extMats) (GLB.extByName[x.name] ??= []).push(x);
   GLB.ext = true; applyMode(); applyDisplay();
+  // topside fit-out (sensors, comms, weapons, aviation) rides the slewing deck and ghosts/clips with the shell
+  const [topG, magG, shellG, eqG] = await Promise.all([TOPSIDE, MAGAZINE, SHELLG, EQUIP].map(parseGLB));
+  const topC = place(topG, slew); topC.traverse((o) => { if (o.isMesh) for (const mm of [o.material].flat()) if (!SHELL.includes(mm)) SHELL.push(mm); }); GLB.topside = topC;
+  { const [fu, fh] = await Promise.all([FACUP, FACHULL].map(parseGLB)); for (const [g, par] of [[fu, slew], [fh, rig]]) { const c = place(g, par); c.traverse((o) => { if (o.isMesh) for (const mm of [o.material].flat()) if (!SHELL.includes(mm)) SHELL.push(mm); }); } }
+  // munitions: magazines become part of the gun system; one shell runs the load cycle
+  { const S6 = SYS[5], GG = S6.parts.find((p) => p.id === 'pumps').obj.parent.parent; const mc = place(magG, slew); S6.groups.push(mc); GLB.mag = mc;
+    const add = (id, name, tag, note, ex) => { const n = mc.getObjectByName(id); if (n) S6.parts.push({id, name, tag, note, cite: null, obj: n, ex, base: n.position.clone(), key: false}); };
+    add('shellmagP', 'Projectile magazine (port), 24 rounds', 'I', '5.3 m calibre to match the bore; visual only', [0, 0, 8]); add('shellmagS', 'Projectile magazine (stbd), 24 rounds', 'I', 'Visual only', [0, 0, -8]);
+    add('chargemagP', 'Propellant charge magazine (port)', 'I', '3-module charges; visual only', [0, 8, 8]); add('chargemagS', 'Propellant charge magazine (stbd)', 'I', 'Visual only', [0, 8, -8]);
+    add('transferP', 'Transfer trolley to hoist (port)', 'I', null, [0, 0, 4]); add('hoistfoot', 'Hoist foot loading tray', 'I', null, [0, -3, 0]); add('blastdoorP', 'Magazine blast doors', 'I', null, [-4, 0, 0]);
+    GLB.shell = place(shellG, slew); GLB.shell.visible = false; S6.groups.push(GLB.shell); }
+  // general arrangement: every remaining volume -> numbered compartment with role + equipment
+  GLB.ga = buildGA({I, rig, slew, SYS}); GLB.gav = new GAView({comps: GLB.ga, equipScene: eqG, frames: {slew, rig}, finish});
+  // surface finish: textured plating everywhere (world-space), lighter on equipment
+  { const skip = /glass|screen|led|window|lit|lens|nav_|flood|light_panel|rubber|cable|skin|fabric|mattress|helideck|deck_mark|radome|aesa|bore_dark|fluid|shrink|sign_|status/;
+    scene.traverse((o) => { if (!o.isMesh) return; for (const mm of [o.material].flat()) { if (!mm || skip.test(mm.name || '') || (mm.emissiveIntensity > 0.5 && mm.emissive?.getHex())) continue;
+      const ext = SHELL.includes(mm); finish(mm, ext ? {scale: 14, strength: 0.9, bump: 0.8} : {scale: 3.2, strength: 0.5, bump: 0.5}); } }); }
+  // stencils: hull number, name, helideck, hangar
+  { const d = (t, o, p, r = 0, par = rig) => { const m_ = decal(t, o); m_.position.set(...p); m_.rotation.y = r; par.add(m_); return m_; };
+    d('C-01', {w: 26, h: 7, color: '#f4f2ec'}, [200, 35.4, 50.32]); d('C-01', {w: 26, h: 7, color: '#f4f2ec'}, [200, 35.4, -50.32], Math.PI);
+    d('COLOSSAL', {w: 40, h: 4, color: '#1b1c1e', font: '800 160px Arial'}, [230.33, 36.2, 0], Math.PI / 2);
+    d('NO STEP · WATERTIGHT DOOR · KEEP CLEAR', {w: 18, h: 1.2, color: '#1b1c1e', font: '700 70px Arial', bg: '#e8c21a'}, [-60, 46.3, 32.6], 0, slew);
+    d('HANGAR 1', {w: 10, h: 2.2, color: '#1b1c1e', font: '800 150px Arial'}, [-113.3, 58.2, 10], -Math.PI / 2, slew); d('HANGAR 2', {w: 10, h: 2.2, color: '#1b1c1e', font: '800 150px Arial'}, [-113.3, 58.2, -10], -Math.PI / 2, slew);
+    const hd = d('C1', {w: 12, h: 8, color: '#f0f0ea', font: '800 360px Arial'}, [-133, 50.6, 16], 0, slew); hd.rotation.set(-Math.PI / 2, 0, Math.PI / 2); }
+  scene.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { o.castShadow = true; o.receiveShadow = true; } }); for (const L of [mainLinks, ...podLinks]) { L.castShadow = true; L.receiveShadow = true; }
+  GLB.extByName = {}; for (const x of SHELL) if (x.name) (GLB.extByName[x.name] ??= []).push(x); applyMode();
   GLB.ready = true; window.__glb = true; applyShell();
 })();
 
@@ -395,7 +448,75 @@ function camStep(dt) {
   let daz = camTo.az - camFrom.az; daz = ((daz + 540) % 360) - 180;
   const v = {t: camFrom.t.map((a, i) => a + (camTo.t[i] - a) * k), r: camFrom.r * Math.pow(camTo.r / camFrom.r, k), el: camFrom.el + (camTo.el - camFrom.el) * k, az: camFrom.az + daz * k};
   cam.fov = camFrom.fov + ((camTo.fov ?? 32) - camFrom.fov) * k; cam.updateProjectionMatrix();
-  ctl.target.set(...v.t); cam.position.copy(sph(v));
+  ctl.target.set(...v.t); cam.position.copy(sph(v)); cam.lookAt(ctl.target);
+}
+
+// ---------------------------------------------------------------- cutaway: deck / block / side planes over the whole machine
+const CUT = {planes: [new THREE.Plane(new THREE.Vector3(0, -1, 0), 0), new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0), new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)], rng: {y: [0, 112], x: [-40, 250], z: [-70, 70]}, sel: null, labs: []};
+const cutVal = (k) => CUT.rng[k][0] + (CUT.rng[k][1] - CUT.rng[k][0]) * ui['cut' + k.toUpperCase()];
+function applyCut() {
+  const on = ui.cut && GLB.gav; renderer.clippingPlanes = on ? CUT.planes : [];
+  CUT.planes[0].constant = cutVal('y'); CUT.planes[1].constant = cutVal('x'); CUT.planes[2].constant = cutVal('z');
+  for (const k of ['y', 'x', 'z']) $('cut' + k.toUpperCase() + 'v').textContent = ui['cut' + k.toUpperCase()] >= 0.999 ? 'off' : `${cutVal(k).toFixed(1)} m`;
+  $('cutCard').style.display = ui.cut ? '' : 'none'; for (const id of ['checks']) { const c = $(id)?.closest('.card'); if (c) c.style.display = ui.cut || ui.sys ? 'none' : ''; }
+  if (!GLB.gav) return; GLB.gav.show(on); applyShell();
+  if (!on) { $('gaLabels').innerHTML = ''; $('gaInfo').style.display = 'none'; return; }
+  // which compartments does each active plane slice? test world-space corners against the planes
+  rig.updateMatrixWorld(true); const V = new THREE.Vector3(), act = CUT.planes.filter((p, i) => ui['cut' + 'YXZ'[i]] < 0.999);
+  const fr = {slew, rig}; let rooms = 0; const roles = {};
+  for (const c of GLB.ga) {
+    let side = act.map(() => [0, 0]), below = true;
+    for (let i = 0; i < 8; i++) { V.set(i & 1 ? c.x1 : c.x0, i & 2 ? c.y1 : c.y0, i & 4 ? c.z1 : c.z0).applyMatrix4(fr[c.frame].matrixWorld);
+      act.forEach((p, j) => { const dd = p.distanceToPoint(V); side[j][dd >= 0 ? 0 : 1]++; }); }
+    c.visibleNow = act.every((_, j) => side[j][0] > 0); c.slice = c.visibleNow && act.some((_, j) => side[j][1] > 0);
+    if (c.slice) { rooms++; const nm = ROLES[c.role]?.[1] || 'system'; roles[nm] = (roles[nm] || 0) + 1; }
+  }
+  if (!act.length) for (const c of GLB.ga) { c.visibleNow = false; c.slice = false; }
+  const st = GLB.gav.furnish((c) => c.slice);
+  const items = Object.values(st.counts).reduce((a, b) => a + b, 0);
+  $('cutN').textContent = `${GLB.ga.length} COMPARTMENTS`;
+  $('cutRead').innerHTML = `<div class="row"><span>In this slice</span><span>${rooms} compartments · ${items} items</span></div>` +
+    Object.entries(roles).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="row"><span><b style="color:${CAT[k].c}">■</b> ${CAT[k].l}</span><span>${v}</span></div>`).join('');
+}
+function gaLabels() {
+  if (!ui.cut || !GLB.gav) return; const out = [], used = [], V = new THREE.Vector3(), r = renderer.domElement.getBoundingClientRect(), fr = {slew, rig};
+  const sc = parseFloat(getComputedStyle($('hud')).zoom || 1) || 1;
+  for (const c of GLB.ga) { if (!c.slice) continue;
+    V.set((c.x0 + c.x1) / 2, Math.min(c.y1 - 0.4, c.y0 + 2.6), (c.z0 + c.z1) / 2).applyMatrix4(fr[c.frame].matrixWorld);
+    for (const p of CUT.planes) if (p.distanceToPoint(V) < 0) { const k = p.distanceToPoint(V); V.addScaledVector(p.normal, -k + 0.3); }
+    V.project(cam); if (V.z > 1 || Math.abs(V.x) > 0.95 || Math.abs(V.y) > 0.92) continue;
+    const x = (V.x + 1) / 2 * r.width / sc, y = (1 - V.y) / 2 * r.height / sc; if (used.some((u) => Math.abs(u[0] - x) < 240 && Math.abs(u[1] - y) < 44)) continue; used.push([x, y]);
+    const D = describe(c, SYS); out.push(`<div class="gal" style="left:${x}px;top:${y}px;border-color:${D.cat.c}">${D.name}<br><i>${c.code}</i></div>`); if (out.length > 18) break; }
+  $('gaLabels').innerHTML = out.join('');
+}
+const PRETTY = {bunk3: '3-tier bunks', locker: 'lockers', console: 'operator consoles', chair: 'chairs', rack: 'equipment racks', displaywall: 'video walls', plot_table: 'plot tables', table_mess: 'mess tables',
+  galley: 'galley ranges', fridge: 'refrigerators', med_bed: 'medical beds', workbench: 'workbenches', lathe: 'lathes', shelf: 'pallet shelving', pallet: 'pallets', ahu: 'air handling units', chiller: 'chillers',
+  ro_unit: 'reverse-osmosis units', battery_rack: 'battery racks', switch_panel: 'distribution boards', pump_skid: 'pump sets', tank_v: 'vertical tanks', gym: 'gym stations', washer: 'washer lines', toilet_block: 'heads blocks',
+  crew_stand: 'crew (standing)', crew_orange: 'crew (engineering)', crew_seated: 'crew (seated)', hvac_duct: 'overhead duct + cable runs', door: 'watertight doors', fire_station: 'fire stations', stair: 'ladders',
+  gen_emerg: 'emergency generators', crane_hoist: 'overhead hoists', spare_shoe: 'spare track shoes', drums: 'drum pallets', hyd_manifold: 'hydraulic manifolds', projectile: 'projectiles', charge: 'charges', sensor_rack: 'RF / sensor cabinets'};
+function gaInfo(c) {
+  if (!c) { $('gaInfo').style.display = 'none'; return; } const D = describe(c, SYS);
+  $('gaInfo').innerHTML = `<div class="h"><span style="color:${D.cat.c}">■ ${D.name.toUpperCase()}</span><span class="n">${D.code}</span></div>
+    <div class="lab" style="margin:4px 0">${D.region} · deck ${D.deck} · ${D.size} · ${D.cat.l}</div><div style="font-size:11px;line-height:1.45;margin:6px 0">${D.purpose}</div>
+    ${D.crew ? `<div class="row"><span>Crew on watch</span><span>${D.crew}</span></div>` : ''}
+    ${Object.entries(D.counts).map(([k, v]) => `<div class="row"><span>${PRETTY[k] || k}</span><span>${v}</span></div>`).join('')}
+    ${D.sys ? `<button class="btn" id="gaSys">OPEN SYSTEM ${D.sys} →</button>` : ''}<button class="btn" id="gaX">CLOSE</button>`;
+  $('gaInfo').style.display = ''; $('gaX').onclick = () => gaInfo(null); if ($('gaSys')) $('gaSys').onclick = () => { ui.cut = false; applyCut(); selectSys(D.sys); };
+}
+renderer.domElement.addEventListener('click', (e) => {
+  if (!ui.cut || !GLB.gav) return; const r = renderer.domElement.getBoundingClientRect(), p = new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  const rc = new THREE.Raycaster(); rc.setFromCamera(p, cam); gaInfo(GLB.gav.pick(rc));
+});
+for (const k of ['Y', 'X', 'Z']) $('cut' + k).oninput = (e) => { ui['cut' + k] = +e.target.value; applyCut(); };
+// load cycle: one projectile from the magazine rack to the hoist foot, up the hoist, onto the tray, rammed into the breech (14 s)
+const LOADP = [[60, 11, 22, 0], [60, 9.6, 14, 2], [46, 10.6, 0, 4.5], [-34, -14.2, 0, 5.5, 'b'], [-2, -0.7, 0, 9.5, 'b'], [8, 0, 0, 12, 'b'], [14, 0, 0, 13.4, 'b']];
+function loadCycle(t) {
+  const sh = GLB.shell; if (!sh) return; sh.visible = ui.sys === 6 || ui.cut; if (!sh.visible) return;
+  const T = t % 14; let i = 0; while (i < LOADP.length - 2 && T > LOADP[i + 1][3]) i++;
+  const a = LOADP[i], b = LOADP[i + 1], k = Math.min(1, Math.max(0, (T - a[3]) / (b[3] - a[3])));
+  const P = (q) => q[4] === 'b' ? new THREE.Vector3(q[0], q[1], q[2]).applyMatrix4(boom.matrix) : new THREE.Vector3(q[0], q[1], q[2]);
+  sh.position.copy(P(a).lerp(P(b), k)); sh.rotation.set(0, 0, a[4] === 'b' || b[4] === 'b' ? boom.rotation.z + (a[4] === 'b' ? 0 : Math.atan2(P(b).y - P(a).y, P(b).x - P(a).x) * k) : 0);
+  sh.visible = T < 13.4;
 }
 
 // ---------------------------------------------------------------- guided tours (film): scripted camera + cut-ins per system
@@ -403,7 +524,7 @@ function camStep(dt) {
 // ex = explode target, pull / ghost = cut-in state, cap = caption. tourAt(T) is deterministic (used for video capture).
 const SEG = (n, steps) => ({n, steps});
 const TOUR = [
-  SEG(0, [{v: 'HERO', d: 6, daz: -25, rk: 1.15, cap: 'COLOSSAL — original amphibious tracked colossus. 230 m hull, 100 m beam, ~130 kt, 1.57 bar ground pressure (Bagger 288 class).'},
+  SEG(0, [{v: 'HERO', d: 6, daz: -25, rk: 1.15, cap: 'COLOSSAL — original amphibious tracked colossus. 230 m hull, 100 m beam, ~130 kt, 1.61 bar ground pressure (Bagger 288 class).'},
           {v: 'TRACK', d: 5, daz: 18, rk: 0.8, cap: 'Four 13 m main belts on 2.6 m hollow cast shoes, 10 road wheels each, hydropneumatic struts; outboard bogie pods.'},
           {v: 'SIDE', d: 4, daz: 0, rk: 1.0, depth: 24, cap: 'Afloat in deep water: sealed hull + track frames give the buoyancy, draft about 19 m.'}]),
   SEG(1, [{d: 5, daz: -20, rk: 1.0, cap: 'POWER — 12 × MAN 8L51/60DF dual-fuel gensets in 4 engine rooms: 96 MW, LNG with MGO pilot.'},
@@ -419,6 +540,12 @@ const TOUR = [
           {d: 4, daz: 25, rk: 0.7, cap: '24 slew drives (motor, brake, planetary box, 18-tooth pinion) turn the upperworks at the commanded slew rate.'}]),
   SEG(6, [{d: 5, daz: -15, rk: 1.0, cap: 'GUN & ELEVATION (visual only) — trunnions, cradle, recoil cylinders, breech; elevated by 2 × Ø1.54 m rams at 350 bar.'},
           {d: 4, daz: 20, rk: 0.85, ex: 0.6, cap: 'Exploded mechanism. 12 × A4VSO 1000 pump sets in the HPU room feed the elevation rams.'}]),
+  SEG(0, [{c: [0.741, 1, 1], cam: {az: -35, el: 58, r: 330, t: [60, 80, 0]}, d: 6, cap: 'CUTAWAY — 1,380 numbered compartments. Deck 9: combat information centre, server and sensor-processing rooms, EW, comms and crypto under the mast.'},
+          {c: [0.67, 1, 1], cam: {az: -25, el: 60, r: 320, t: [60, 75, 0]}, d: 5, cap: 'Deck 7: berthing in 24-bunk sections, cabins, heads, training room and armoury; damage-control HQ amidships.'},
+          {c: [0.598, 1, 1], cam: {az: -15, el: 62, r: 320, t: [60, 68, 0]}, d: 5, cap: 'Deck 5: galley, bakery, cold and dry provisions, laundry and garbage handling feeding four mess sittings.'},
+          {c: [0.482, 1, 1], cam: {az: -5, el: 60, r: 320, t: [60, 55, 0]}, d: 5, cap: 'Deck 2: engine rooms, engine control room, HVAC and chilled-water plants, electrical workshop and machinery spares.'},
+          {c: [0.3125, 1, 1], cam: {az: 10, el: 55, r: 360, t: [115, 34, 0]}, d: 5, cap: 'Hull decks: double-bottom tanks (fuel, fresh water, lube, sludge, cofferdams), heavy and track workshops, spare-shoe store, vehicle garage.'},
+          {c: [1, 1, 0.5], cam: {az: 90, el: 10, r: 440, t: [100, 50, 0]}, d: 6, cap: 'Longitudinal section: machinery low, hotel services mid, command high; magazines and the hoist beside the gun.'}]),
   SEG(7, [{d: 5, daz: -15, rk: 1.0, cap: 'HULL & MARINE — 5 retractable 5.5 MW azimuth thrusters for water ops, 8 watertight compartments, ballast system.'},
           {d: 4, daz: 30, rk: 1.0, pull: false, cap: 'Fire safety in place: fire main, hydrants, deluge, lifeboats and 163 portable extinguishers on 46 CFR spacing.'}]),
 ];
@@ -432,9 +559,11 @@ function tourAt(T) {
   const S = TOUR[si]; let a = 0; for (st = 0; st < S.steps.length - 1 && local >= a + S.steps[st].d; st++) a += S.steps[st].d;
   const P = S.steps[st], prev = S.steps[st - 1] || P, k = ease(Math.min(1, (local - a) / Math.min(2.2, P.d)));
   if (si !== tour.seg) { tour.seg = si; tour.step = -1; if (S.n) { if (ui.sys !== S.n) selectSys(S.n); } else if (ui.sys) selectSys(ui.sys); }
-  if (st !== tour.step) { tour.step = st; if (S.n) { const pl = P.pull ?? !!SYS[S.n - 1].frame.pull; if (pl !== ui.pull) { ui.pull = pl; applyShell(); selectSys(-1); } }
+  if (st !== tour.step) { tour.step = st; { const want = !!P.c; if (want) { [ui.cutY, ui.cutX, ui.cutZ] = P.c; for (const q of ['Y', 'X', 'Z']) $('cut' + q).value = ui['cut' + q]; } if (want || ui.cut) { ui.cut = want; applyCut(); } } if (S.n) { const pl = P.pull ?? !!SYS[S.n - 1].frame.pull; if (pl !== ui.pull) { ui.pull = pl; applyShell(); selectSys(-1); } }
     ui.depth = P.depth ?? 0; if ($('depth')) $('depth').value = ui.depth;
     $('cap').textContent = P.cap; $('cap').style.display = ''; }
+  if (P.cam) { const q = prev.cam || P.cam, L = (x, y) => x + (y - x) * k; const v = {t: q.t.map((x, i) => L(x, P.cam.t[i])), az: L(q.az, P.cam.az), el: L(q.el, P.cam.el), r: L(q.r, P.cam.r), fov: 32};
+    camTo = null; camK = 1; ctl.target.set(...v.t); cam.position.copy(sph(v)); cam.lookAt(ctl.target); return; }
   const base = S.n ? VIEWS.SYS : VIEWS[P.v], b0 = S.n ? VIEWS.SYS : VIEWS[prev.v];
   const lerp = (x, y) => x + (y - x) * k;
   const v = {t: (st === 0 || S.n ? base.t : b0.t.map((x, i) => lerp(x, base.t[i]))), az: lerp(b0.az + (prev === P ? 0 : prev.daz || 0), base.az + (P.daz || 0)),
@@ -447,19 +576,19 @@ function tourStart(only = null) { tour.on = true; tour.t = 0; tour.seg = -1; tou
 function tourStop() { tour.on = false; $('cap').style.display = 'none'; if (ui.sys) selectSys(ui.sys); view('HERO'); }
 
 // ---------------------------------------------------------------- modes
-const ui = {t: 0, rate: 10, view: 'HERO', mode: 'STUDIO', xray: false, terrain: true, depth: 0, paused: false, sys: 0, explode: 0, ghost: false, pull: false, strobe: true, trip: {}};
+const ui = {t: 0, rate: 10, view: 'HERO', mode: 'STUDIO', xray: false, terrain: true, depth: 0, paused: false, sys: 0, explode: 0, ghost: false, pull: false, strobe: true, trip: {}, cut: false, cutY: 1, cutX: 1, cutZ: 1};
 function applyMode() {
   const f = ui.mode === 'FIELD';
   document.body.classList.toggle('field', f);
   scene.background = new THREE.Color(f ? 0xdcdedf : 0xeeece7);
-  scene.fog = f ? new THREE.FogExp2(0xdcdedf, 0.00022) : null;
+  scene.fog = f ? new THREE.FogExp2(0xdcdedf, 0.00022) : new THREE.FogExp2(0xeeece7, 0.00028);
   M.hull.color.set(f ? 0x16181b : 0xb8b3a9); M.plate.color.set(f ? 0x15171a : 0xcfcac1); M.panel.color.set(f ? 0x24262a : 0xe9e6df); M.panel.metalness = f ? 0.1 : 0.25; M.panel.envMapIntensity = f ? 0.35 : 1;
   M.link.color.set(f ? 0x8a8d92 : 0x2b2d30); M.acc.color.set(f ? 0x1c1e21 : 0xe8562a); M.wheel.color.set(f ? 0x2c2e31 : 0x9a968e);
   scene.environmentIntensity = f ? 0.45 : 0.6;
-  if (GLB?.extByName) { const T = {hull_warm: [0xa9a499, 0x16181b], plate_light: [0xc4bfb5, 0x1b1d20], frame_dark: [0x4a4d51, 0x2a2c30], deck_nonskid: [0x7f7c76, 0x2a2b2d], glacis_bright: [0xe2ded6, 0xbdb9b1], trim_dark: [0x2f3134, 0x0f1012]};
+  if (GLB?.extByName) { const T = {hull_warm: [0x2c2f33, 0x16181b], plate_light: [0x34383d, 0x1b1d20], frame_dark: [0x1c1e21, 0x14161a], deck_nonskid: [0x3a3c3f, 0x2a2b2d], glacis_bright: [0xe4e2dc, 0xc9c6bf], trim_dark: [0x141518, 0x0f1012], module_white: [0xe2e0da, 0xbdbab3], topside_white: [0x3a3e43, 0x30343a], tower_light: [0x464a50, 0x3a3e43], riser_grey: [0x2a2d31, 0x22252a], rack_dark: [0x1e2023, 0x1a1c1f], skirt_dark: [0x1a1c1f, 0x15171a], condenser: [0xcfcdc6, 0xa9a7a0], aesa_face: [0x1d2228, 0x1d2228]};
     for (const [n, c] of Object.entries(T)) for (const x of GLB.extByName[n] || []) x.color.setHex(c[f ? 1 : 0]); }
   gTex.image.getContext('2d'); gMat.color.set(f ? 0xdcdad4 : 0xffffff);
-  hemi.intensity = f ? 0.8 : 1.6; key.intensity = f ? 0.3 : 2.2; renderer.toneMappingExposure = f ? 0.8 : 1;
+  hemi.intensity = f ? 0.8 : 1.5; key.intensity = f ? 0.3 : 3.2; renderer.toneMappingExposure = f ? 0.8 : 1;
   fig.visible = true; salt.visible = f; grass.visible = f; ground.visible = !f;
   if (f) { const cp = sph(VIEWS.FIELD), t = new THREE.Vector3(...VIEWS.FIELD.t), dir = t.clone().sub(cp).setY(0).normalize();
     grass.position.copy(cp).addScaledVector(dir, 190).setY(0.02); grass.rotation.z = Math.atan2(dir.x, dir.z);
@@ -468,10 +597,15 @@ function applyMode() {
 function applyDisplay() { if (GLB?.xray) for (const x of GLB.xray) { x.transparent = ui.xray; x.opacity = ui.xray ? 0.12 : 1; x.depthWrite = !ui.xray; x.needsUpdate = true; } M.plate.opacity = ui.xray ? 0.12 : 1; M.hull.transparent = ui.xray; M.hull.opacity = ui.xray ? 0.25 : 1; M.hull.needsUpdate = true; }
 function btns(el, items) { $(el).innerHTML = items.map(([k, l]) => `<span class="btn" data-k="${k}">${l}</span>`).join(''); $(el).onclick = (e) => { const k = e.target.dataset.k; if (k) act(k); }; }
 btns('views', Object.keys(VIEWS).map((k) => [`v:${k}`, k]));
-btns('tours', [['tour:all', '▶ FULL TOUR'], ...[1, 2, 3, 4, 5, 6, 7].map((n) => [`tour:${n}`, `▶ ${n}`]), ['tour:stop', '■ STOP']]);
+btns('cutBtns', [['cutp:0.741,1,1', 'COMMAND · DECK 9'], ['cutp:0.67,1,1', 'BERTHING · DECK 7'], ['cutp:0.598,1,1', 'HOTEL · DECK 5'], ['cutp:0.482,1,1', 'MACHINERY · DECK 2'],
+  ['cutp:0.3125,1,1', 'HULL · DECK 2'], ['cutp:0.152,1,1', 'TRACK FRAMES'], ['cutp:1,1,0.5', 'LONG SECTION'], ['cutp:1,0.741,1', 'SECTION AT GUN'], ['cutp:1,1,1', 'RESET']]);
+$('cutLeg').innerHTML = Object.values(CAT).map((c) => `<span style="margin-right:8px;white-space:nowrap"><b style="color:${c.c}">■</b> ${c.l}</span>`).join('');
+btns('tours', [['cut', '✂ CUTAWAY DECKS'], ['tour:all', '▶ FULL TOUR'], ...[1, 2, 3, 4, 5, 6, 7].map((n) => [`tour:${n}`, `▶ ${n}`]), ['tour:decks', '▶ DECKS'], ['tour:stop', '■ STOP']]);
 btns('modes', [['m:STUDIO', 'STUDIO'], ['m:FIELD', 'FIELD'], ['x', 'X-RAY'], ['g', 'TERRAIN'], ['r:1', '×1'], ['r:10', '×10'], ['r:30', '×30'], ['p', 'PAUSE']]);
 function act(k) {
-  if (k.startsWith('tour:')) { const w = k.slice(5); if (w === 'stop') tourStop(); else tourStart(w === 'all' ? null : +w); return; }
+  if (k === 'cut') { ui.cut = !ui.cut; if (ui.cut && ui.sys) selectSys(ui.sys); if (ui.cut) { ui.cutY = 0.6; $('cutY').value = 0.6; } applyCut(); if (typeof sync === 'function') sync(); return; }
+  if (k.startsWith('cutp:')) { const [y, x, z] = k.slice(5).split(',').map(Number); ui.cutY = y; ui.cutX = x; ui.cutZ = z; for (const q of ['Y', 'X', 'Z']) $('cut' + q).value = ui['cut' + q]; applyCut(); return; }
+  if (k.startsWith('tour:')) { const w = k.slice(5); if (w === 'stop') tourStop(); else if (w === 'all') tourStart(null); else if (w === 'decks') tourStart(TOUR.findIndex((s) => s.steps[0].c)); else tourStart(TOUR.findIndex((s) => s.n === +w)); return; }
   if (k.startsWith('v:')) view(k.slice(2));
   else if (k.startsWith('m:')) { ui.mode = k.slice(2); applyMode(); if (ui.mode === 'FIELD') view('FIELD'); }
   else if (k === 'x') { ui.xray = !ui.xray; applyDisplay(); }
@@ -550,7 +684,7 @@ function panels(S) {
   $('clock').textContent = `t ${fmt(S.t, 0)} s · TIME ×${ui.rate}${ui.rate > 1 ? ' (TIME-LAPSE)' : ''} · ${ui.mode} · ${ui.view}`;
 }
 function resize() {
-  const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h;
+  const w = innerWidth, h = innerHeight; composer.setSize(w, h); gtao.setSize(w, h); renderer.setSize(w, h, false); cam.aspect = w / h;
   const k = Math.min(w / 1600, h / 900); if (typeof ui !== 'undefined' && ui.sys) cam.setViewOffset(w, h, 90 * k, 0, w, h); else cam.clearViewOffset(); cam.updateProjectionMatrix();
   $('hud').style.transform = `scale(${Math.min(w / 1600, h / 900)})`;
 }
@@ -566,7 +700,7 @@ function applyShell() {
     const gh = ui.sys && ui.ghost, xr = (m === M.plate || GLB.xray?.includes(m)) && ui.xray; m.transparent = gh || xr; m.opacity = gh ? 0.07 : (xr ? 0.12 : 1); m.depthWrite = !gh; m.needsUpdate = true;
   }
   for (const g of GREEB) g.visible = !(ui.sys && ui.ghost) && !GLB.ext;
-  for (const s of SYS) for (const g of s.groups) g.visible = ui.sys ? s.n === ui.sys : ui.xray;
+  for (const s of SYS) for (const g of s.groups) g.visible = ui.sys ? s.n === ui.sys : (ui.xray || ui.cut);
   const S = SYS[ui.sys - 1], P = ui.sys && ui.pull && S?.frame.pull;
   const ENV = [ground, water, salt, grass, fig, contact];
   if (P && !ui._env) ui._env = ENV.map((o) => o.visible);
@@ -712,18 +846,18 @@ function follow() {
   rig.updateMatrixWorld(true); if (ui.sys && ui.view === 'SYS' && ui.anchor) { const A = ui.anchor; const w = A.g.localToWorld(A.l.clone()); const d = w.clone().sub(A.w); A.w.copy(w);
     VIEWS.SYS.t = w.toArray(); if (camFrom) camFrom.t = camFrom.t.map((a, i) => a + d.getComponent(i)); ctl.target.add(d); cam.position.add(d); }
 }
-function renderAt(t) { ui.t = t; const S = K.state(t, opts()); pose(S); follow(); panels(S); sysPanel(); renderer.render(scene, cam); labels(); }
+function renderAt(t) { ui.t = t; const S = K.state(t, opts()); pose(S); follow(); panels(S); sysPanel(); loadCycle(t); draw(); labels(); gaLabels(); }
 let last = performance.now();
 function frame(now) {
   if (window.__hold === 'film') { requestAnimationFrame(frame); return; }   // capture drives renderAt itself
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (!ui.paused && !window.__hold) ui.t += dt * ui.rate;
-  follow();
+  follow(); loadCycle(ui.t); gaLabels();
   if (tour.on) { tour.t += dt; if (tour.t >= (tour.only != null ? TT[tour.only] : TOUR_LEN)) tourStop(); else tourAt(tour.t); }
   camStep(dt); ctl.update();
   const S = K.state(ui.t, opts()); pose(S); panels(S); sysPanel();
-  renderer.render(scene, cam); labels(); requestAnimationFrame(frame);
+  draw(); labels(); requestAnimationFrame(frame);
 }
 applyMode(); applyDisplay(); cam.position.copy(sph(VIEWS.HERO)); ctl.target.set(...VIEWS.HERO.t); sync();
 requestAnimationFrame(frame);
-window.__app = {film: (on) => { document.body.classList.toggle('film', on); }, ready: true, ui, view, act, renderAt, tourAt, tour, TOUR, TT, TOUR_LEN, follow, VIEWS, settle: () => { if (camTo) { camK = 0.999; camStep(1); } }, K, scene, cam, grass, salt, fig, SYS, selectSys, renderer, EXTS};
+window.__app = {applyShell: () => applyShell(), setCam: (v) => { camTo = null; camK = 1; ctl.target.set(...v.t); cam.position.copy(sph({fov: cam.fov, ...v})); cam.lookAt(ctl.target); }, applyCut, gaInfo, CUT, GLB_: () => GLB, film: (on) => { document.body.classList.toggle('film', on); }, ready: true, ui, view, act, renderAt, tourAt, tour, TOUR, TT, TOUR_LEN, follow, VIEWS, settle: () => { if (camTo) { camK = 0.999; camStep(1); } }, K, scene, cam, grass, salt, fig, SYS, selectSys, renderer, EXTS};
